@@ -157,15 +157,15 @@ npm run dev
 - [x] Repository initialized
 - [x] README + long-term goals
 - [x] Project structure document
-- [ ] App scaffold (frontend + Supabase config)
-- [ ] Supabase schema + RLS migrations
-- [ ] Landing page + Supabase auth
-- [ ] "Connect my email" → Azure OAuth
-- [ ] `oauth-callback` edge function
-- [ ] `poll-microsoft` cron edge function (60s)
-- [ ] Two-pane email reader UI
-- [ ] Code review + manual test
-- [ ] Pull request
+- [x] App scaffold (frontend + Supabase config)
+- [x] Supabase schema + RLS migrations
+- [x] Landing page + Supabase auth
+- [x] "Connect my email" → Azure OAuth
+- [x] `oauth-callback` edge function
+- [x] `poll-microsoft` cron edge function (60s)
+- [x] Two-pane email reader UI
+- [x] Code review + frontend manual test (backend flows pending live Azure/Supabase creds)
+- [ ] Pull request (blocked: no git remote configured yet)
 
 ---
 
