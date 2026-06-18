@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inbox — DevPod</title>
+  <link rel="stylesheet" href="/src/styles.css" />
+</head>
+<body>
+  <div class="inbox-layout">
+    <aside class="email-list-pane">
+      <div class="email-list-header">
+        <h1>Inbox</h1>
+        <button class="btn btn-secondary" id="signout-btn">Sign out</button>
+      </div>
+      <div class="email-list-scroll" id="email-list">
+        <p class="empty-state">Loading…</p>
+      </div>
+    </aside>
+    <main class="email-viewer-pane" id="email-viewer">
+      <div class="email-viewer-placeholder">Select a message to read it</div>
+    </main>
+  </div>
+  <script type="module" src="/src/inbox.ts"></script>
+</body>
+</html>
