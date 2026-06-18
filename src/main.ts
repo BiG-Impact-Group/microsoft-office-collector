@@ -1,5 +1,6 @@
 import { signIn, signUp, signOut, getSession } from "./auth.js";
 import { initiateOAuth } from "./connectEmail.js";
+import { getMicrosoftAccount } from "./emails.js";
 
 const app = document.getElementById("app")!;
 
@@ -7,7 +8,7 @@ async function render(): Promise<void> {
   const session = await getSession();
 
   if (session) {
-    renderDashboard(session.user.email ?? "");
+    await renderDashboard(session.user.email ?? "");
   } else {
     renderAuthForm("signin");
   }
@@ -63,19 +64,35 @@ function renderAuthForm(mode: "signin" | "signup"): void {
   });
 }
 
-function renderDashboard(email: string): void {
+async function renderDashboard(email: string): Promise<void> {
+  // Reflect whether a Microsoft account is already connected.
+  let connected: { provider_account_email: string } | null = null;
+  try {
+    connected = await getMicrosoftAccount();
+  } catch {
+    // Non-fatal — fall back to the "connect" prompt.
+  }
+
+  const body = connected
+    ? `<p>Connected as <strong>${escapeHtml(connected.provider_account_email)}</strong>.</p>
+       <div class="dashboard-actions">
+         <a class="btn btn-primary" href="/inbox.html">Go to inbox</a>
+         <button class="btn btn-danger" id="signout-btn">Sign out</button>
+       </div>`
+    : `<p>Connect your Microsoft inbox to start syncing email.</p>
+       <div class="dashboard-actions">
+         <button class="btn btn-primary" id="connect-btn">Connect my email</button>
+         <button class="btn btn-danger" id="signout-btn">Sign out</button>
+       </div>`;
+
   app.innerHTML = `
     <div class="dashboard">
       <h2>Welcome, ${escapeHtml(email)}</h2>
-      <p>Connect your Microsoft inbox to start syncing email.</p>
-      <div class="dashboard-actions">
-        <button class="btn btn-primary" id="connect-btn">Connect my email</button>
-        <button class="btn btn-danger" id="signout-btn">Sign out</button>
-      </div>
+      ${body}
     </div>
   `;
 
-  document.getElementById("connect-btn")!.addEventListener("click", () => {
+  document.getElementById("connect-btn")?.addEventListener("click", () => {
     initiateOAuth();
   });
 

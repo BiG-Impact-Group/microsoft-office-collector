@@ -7,7 +7,19 @@ const AZURE_TENANT = Deno.env.get("AZURE_TENANT") ?? "common";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+const CORS_HEADERS: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, content-type",
+};
+
 Deno.serve(async (req: Request) => {
+  // Browsers send a CORS preflight (OPTIONS) before the cross-origin POST
+  // because of the Authorization + Content-Type headers. Answer it.
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS_HEADERS });
+  }
+
   if (req.method !== "POST") {
     return json({ error: "Method not allowed" }, 405);
   }
@@ -127,7 +139,7 @@ function json(body: unknown, status = 200): Response {
     status,
     headers: {
       "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*",
+      ...CORS_HEADERS,
     },
   });
 }

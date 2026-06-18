@@ -65,5 +65,8 @@ function escapeHtml(str: string): string {
 }
 
 function escapeAttr(str: string): string {
-  return str.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }

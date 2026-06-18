@@ -11,6 +11,7 @@ const viewerEl = document.getElementById("email-viewer")!;
 
 let selectedId: string | null = null;
 let accountId: string | null = null;
+let emailCache: Email[] = [];
 
 async function init(): Promise<void> {
   // Guard: redirect to landing if not authenticated
@@ -53,8 +54,8 @@ async function loadEmails(): Promise<void> {
   if (!accountId) return;
 
   try {
-    const emails = await fetchEmails(accountId);
-    renderEmailList(listEl, emails, selectedId, onEmailSelect);
+    emailCache = await fetchEmails(accountId);
+    renderEmailList(listEl, emailCache, selectedId, onEmailSelect);
   } catch {
     listEl.innerHTML = `<p class="empty-state">Failed to load emails. Try refreshing.</p>`;
   }
@@ -63,13 +64,8 @@ async function loadEmails(): Promise<void> {
 function onEmailSelect(email: Email): void {
   selectedId = email.id;
 
-  // Re-render list to update selection highlight
-  fetchEmails(accountId!).then((emails) => {
-    renderEmailList(listEl, emails, selectedId, onEmailSelect);
-  }).catch(() => {
-    // Non-critical — viewer still works even if list refresh fails
-  });
-
+  // Re-render from the cached list to move the highlight — no refetch needed.
+  renderEmailList(listEl, emailCache, selectedId, onEmailSelect);
   renderEmailViewer(viewerEl, email);
 }
 

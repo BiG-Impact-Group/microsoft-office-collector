@@ -96,11 +96,10 @@ async function syncAccount(
   const messages = await fetchNewMessages(activeAccessToken, since);
 
   if (messages.length === 0) {
-    // Still update last_synced_at so the filter window advances
-    await db
-      .from("connected_accounts")
-      .update({ last_synced_at: new Date().toISOString() })
-      .eq("id", account.id);
+    // Nothing new. Do NOT advance the watermark to now(): a message could
+    // arrive with a receivedDateTime between this query and now(), and a
+    // now() watermark would skip it on the next poll. Leaving the watermark
+    // unchanged keeps the window gap-free (re-queries are cheap + deduped).
     return;
   }
 
@@ -128,10 +127,16 @@ async function syncAccount(
     throw new Error(`Failed to upsert emails: ${upsertErr.message}`);
   }
 
-  // ── 5. Advance last_synced_at ─────────────────────────────
+  // ── 5. Advance last_synced_at to the newest message actually ingested.
+  // Using the max receivedDateTime (not now()) guarantees the filter window
+  // never jumps past a message we haven't stored.
+  const newest = messages.reduce(
+    (max, m) => (m.receivedDateTime > max ? m.receivedDateTime : max),
+    messages[0].receivedDateTime
+  );
   await db
     .from("connected_accounts")
-    .update({ last_synced_at: new Date().toISOString() })
+    .update({ last_synced_at: newest })
     .eq("id", account.id);
 }
 
@@ -167,10 +172,19 @@ async function refreshAccessToken(
 
   const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
 
-  // Re-encrypt and persist updated tokens
-  const { data: encAccess } = await db.rpc("encrypt_token", { plaintext: tokens.access_token });
+  // Re-encrypt and persist updated tokens. Bail if encryption fails so we
+  // never overwrite good tokens with null and corrupt the account.
   const newRefresh = tokens.refresh_token ?? refreshToken;
-  const { data: encRefresh } = await db.rpc("encrypt_token", { plaintext: newRefresh });
+  const { data: encAccess, error: encAccessErr } = await db
+    .rpc("encrypt_token", { plaintext: tokens.access_token });
+  const { data: encRefresh, error: encRefreshErr } = await db
+    .rpc("encrypt_token", { plaintext: newRefresh });
+
+  if (encAccessErr || encRefreshErr || !encAccess || !encRefresh) {
+    throw new Error(
+      `Failed to encrypt refreshed tokens: ${(encAccessErr ?? encRefreshErr)?.message ?? "null ciphertext"}`
+    );
+  }
 
   await db
     .from("connected_accounts")
@@ -184,30 +198,49 @@ async function refreshAccessToken(
   return tokens.access_token;
 }
 
+// Cap pages so one very backlogged account can't run the function forever.
+// 20 pages × 50 = up to 1000 messages per account per poll; the rest are
+// picked up on the next run because the watermark only advances past what
+// we ingested.
+const MAX_PAGES = 20;
+
 async function fetchNewMessages(
   accessToken: string,
   since: string
 ): Promise<GraphMessage[]> {
-  // ISO 8601 format required by OData $filter
+  // ISO 8601 format required by OData $filter.
+  // Order ASCENDING and follow @odata.nextLink so we ingest the *oldest*
+  // unsynced messages first and never drop a page beyond $top.
   const sinceEncoded = encodeURIComponent(since);
-
-  const url =
+  let url: string | null =
     "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages" +
     `?$select=id,subject,from,bodyPreview,body,receivedDateTime,isRead` +
     `&$filter=receivedDateTime gt ${sinceEncoded}` +
-    `&$orderby=receivedDateTime desc` +
+    `&$orderby=receivedDateTime asc` +
     `&$top=50`;
 
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  const messages: GraphMessage[] = [];
+  let pages = 0;
 
-  if (!res.ok) {
-    throw new Error(`Graph messages fetch failed: ${await res.text()}`);
+  while (url && pages < MAX_PAGES) {
+    const res: Response = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!res.ok) {
+      throw new Error(`Graph messages fetch failed: ${await res.text()}`);
+    }
+
+    const data = await res.json() as {
+      value: GraphMessage[];
+      "@odata.nextLink"?: string;
+    };
+    messages.push(...(data.value ?? []));
+    url = data["@odata.nextLink"] ?? null;
+    pages++;
   }
 
-  const data = await res.json() as { value: GraphMessage[] };
-  return data.value ?? [];
+  return messages;
 }
 
 function escapeHtml(str: string): string {

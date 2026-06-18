@@ -6,7 +6,16 @@
       "Bash(git branch *)",
       "Bash(git checkout *)",
       "Bash(mkdir -p /Volumes/forge2.0/DevPod/.claude/skills)",
-      "Bash(cp -R /Volumes/forge2.0/todo-sample/.claude/skills/. /Volumes/forge2.0/DevPod/.claude/skills/)"
+      "Bash(cp -R /Volumes/forge2.0/todo-sample/.claude/skills/. /Volumes/forge2.0/DevPod/.claude/skills/)",
+      "Bash(npm -v)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(git add *)",
+      "Bash(git restore *)",
+      "Bash(git commit -q -m ' *)",
+      "Skill(code-review)",
+      "Skill(code-review:*)",
+      "Bash(npm run *)"
     ]
   }
 }
