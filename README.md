@@ -153,6 +153,9 @@ npm run dev
 | `AZURE_REDIRECT_URI`            | both       | OAuth callback URL                       |
 | `AZURE_TENANT`                  | edge fns   | Tenant (`common` for multi-tenant)       |
 
+> Setting up the Azure app registration that supplies these values:
+> see [`docs/AZURE_SETUP.md`](./docs/AZURE_SETUP.md).
+
 ---
 
 ## Status
