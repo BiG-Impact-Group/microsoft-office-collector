@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { encryptToken } from "../_shared/crypto.ts";
 
 const AZURE_CLIENT_ID = Deno.env.get("AZURE_CLIENT_ID")!;
 const AZURE_CLIENT_SECRET = Deno.env.get("AZURE_CLIENT_SECRET")!;
@@ -98,16 +99,16 @@ Deno.serve(async (req: Request) => {
   const me = await meRes.json() as { mail?: string; userPrincipalName?: string };
   const providerEmail = me.mail ?? me.userPrincipalName ?? "";
 
-  // ── 5. Encrypt tokens via pgsodium RPC ────────────────────
+  // ── 5. Encrypt tokens application-side (AES-256-GCM) ───────
   const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  const { data: encAccess, error: encAccessErr } = await adminClient
-    .rpc("encrypt_token", { plaintext: tokens.access_token });
-  const { data: encRefresh, error: encRefreshErr } = await adminClient
-    .rpc("encrypt_token", { plaintext: tokens.refresh_token });
-
-  if (encAccessErr || encRefreshErr) {
-    console.error("Encryption failed:", encAccessErr ?? encRefreshErr);
+  let encAccess: string;
+  let encRefresh: string;
+  try {
+    encAccess = await encryptToken(tokens.access_token);
+    encRefresh = await encryptToken(tokens.refresh_token);
+  } catch (err) {
+    console.error("Encryption failed:", err);
     return json({ error: "Failed to encrypt tokens" }, 500);
   }
 

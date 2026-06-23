@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { decryptToken, encryptToken } from "../_shared/crypto.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -73,22 +74,24 @@ async function syncAccount(
   db: ReturnType<typeof createClient>,
   account: ConnectedAccount
 ): Promise<void> {
-  // ── 1. Decrypt tokens ──────────────────────────────────────
-  const { data: accessToken, error: decAccessErr } = await db
-    .rpc("decrypt_token", { ciphertext: account.access_token_encrypted });
-  const { data: refreshToken, error: decRefreshErr } = await db
-    .rpc("decrypt_token", { ciphertext: account.refresh_token_encrypted });
-
-  if (decAccessErr || decRefreshErr || !accessToken || !refreshToken) {
-    throw new Error("Failed to decrypt tokens");
+  // ── 1. Decrypt tokens (app-side AES-256-GCM) ──────────────
+  let accessToken: string;
+  let refreshToken: string;
+  try {
+    accessToken = await decryptToken(account.access_token_encrypted);
+    refreshToken = await decryptToken(account.refresh_token_encrypted);
+  } catch (err) {
+    throw new Error(
+      `Failed to decrypt tokens: ${err instanceof Error ? err.message : err}`
+    );
   }
 
-  let activeAccessToken: string = accessToken as string;
+  let activeAccessToken = accessToken;
 
   // ── 2. Proactive token refresh ────────────────────────────
   const expiresAt = account.token_expires_at ? new Date(account.token_expires_at).getTime() : 0;
   if (Date.now() + REFRESH_BUFFER_MS >= expiresAt) {
-    activeAccessToken = await refreshAccessToken(db, account, refreshToken as string);
+    activeAccessToken = await refreshAccessToken(db, account, refreshToken);
   }
 
   // ── 3. Fetch new messages from Graph ─────────────────────
@@ -172,19 +175,11 @@ async function refreshAccessToken(
 
   const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
 
-  // Re-encrypt and persist updated tokens. Bail if encryption fails so we
-  // never overwrite good tokens with null and corrupt the account.
+  // Re-encrypt and persist updated tokens. encryptToken throws on failure,
+  // which aborts before the update so we never overwrite good tokens.
   const newRefresh = tokens.refresh_token ?? refreshToken;
-  const { data: encAccess, error: encAccessErr } = await db
-    .rpc("encrypt_token", { plaintext: tokens.access_token });
-  const { data: encRefresh, error: encRefreshErr } = await db
-    .rpc("encrypt_token", { plaintext: newRefresh });
-
-  if (encAccessErr || encRefreshErr || !encAccess || !encRefresh) {
-    throw new Error(
-      `Failed to encrypt refreshed tokens: ${(encAccessErr ?? encRefreshErr)?.message ?? "null ciphertext"}`
-    );
-  }
+  const encAccess = await encryptToken(tokens.access_token);
+  const encRefresh = await encryptToken(newRefresh);
 
   await db
     .from("connected_accounts")

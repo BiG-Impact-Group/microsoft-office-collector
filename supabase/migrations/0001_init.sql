@@ -1,26 +1,28 @@
 -- =============================================================
 -- DevPod — Week 1 schema: connected_accounts + emails
--- Extensions: pgsodium (Vault encryption), pg_cron, pg_net
+--
+-- Token encryption is done APPLICATION-SIDE in the edge functions
+-- (AES-GCM via Web Crypto, key from the TOKEN_ENCRYPTION_KEY function
+-- secret). The DB only ever stores opaque ciphertext, so there is no
+-- pgsodium/Vault dependency here. Columns hold base64 ciphertext as text.
+-- Extensions pg_cron + pg_net are used by the poll cron (see 0002).
 -- =============================================================
-
--- Extensions
 
 create extension if not exists pg_cron with schema extensions;
 create extension if not exists pg_net with schema extensions;
 
 -- =============================================================
 -- connected_accounts
--- Stores one row per user × provider (e.g. 'microsoft').
--- Tokens are encrypted at rest with pgsodium deterministic AEAD.
+-- One row per user × provider (e.g. 'microsoft').
+-- Token columns hold app-encrypted ciphertext (never plaintext).
 -- =============================================================
 create table public.connected_accounts (
   id                      uuid primary key default gen_random_uuid(),
   user_id                 uuid not null references auth.users on delete cascade,
   provider                text not null,
   provider_account_email  text,
-  -- Tokens stored as pgsodium-encrypted bytea; never plaintext in the DB.
-  access_token_encrypted  bytea,
-  refresh_token_encrypted bytea,
+  access_token_encrypted  text,
+  refresh_token_encrypted text,
   token_expires_at        timestamptz,
   last_synced_at          timestamptz,
   created_at              timestamptz not null default now(),
@@ -52,6 +54,8 @@ create table public.emails (
 
 -- =============================================================
 -- Row-Level Security
+-- Tokens are only ever read by the edge functions via the service
+-- role (which bypasses RLS). End users get no direct token access.
 -- =============================================================
 alter table public.connected_accounts enable row level security;
 alter table public.emails enable row level security;
@@ -72,67 +76,3 @@ create policy "emails: own accounts only"
       select id from public.connected_accounts where user_id = auth.uid()
     )
   );
-
--- =============================================================
--- pgsodium key for token encryption
--- Key ID 1 is derived from Supabase's root pgsodium key.
--- Edge functions call pgsodium.crypto_aead_det_encrypt /
--- pgsodium.crypto_aead_det_decrypt with this key ID.
--- =============================================================
-select pgsodium.create_key(
-  name        => 'devpod-token-key',
-  key_type    => 'aead-det',
-  raw_key     => null   -- let pgsodium derive from the root key
-);
-
--- Expose a helper that edge functions can call via RPC to avoid
--- embedding raw pgsodium calls in every edge function.
-
--- encrypt_token: wraps pgsodium det-encrypt; returns bytea
-create or replace function public.encrypt_token(plaintext text)
-returns bytea
-language sql security definer
-as $$
-  select pgsodium.crypto_aead_det_encrypt(
-    plaintext => convert_to(plaintext, 'utf8'),
-    additional => convert_to('devpod-token', 'utf8'),
-    key_id => (select id from pgsodium.valid_key where name = 'devpod-token-key' limit 1)
-  );
-$$;
-
--- decrypt_token: wraps pgsodium det-decrypt; returns text
-create or replace function public.decrypt_token(ciphertext bytea)
-returns text
-language sql security definer
-as $$
-  select convert_from(
-    pgsodium.crypto_aead_det_decrypt(
-      ciphertext  => ciphertext,
-      additional  => convert_to('devpod-token', 'utf8'),
-      key_id      => (select id from pgsodium.valid_key where name = 'devpod-token-key' limit 1)
-    ),
-    'utf8'
-  );
-$$;
-
--- =============================================================
--- pg_cron: invoke poll-microsoft every minute
--- URL is hardcoded (public). The service role key is read from
--- a DB-level GUC set post-deploy (see README / deployment notes).
--- Run this after pushing the migration:
---   ALTER DATABASE postgres SET "app.service_role_key" = '<your-service-role-key>';
--- =============================================================
-select cron.schedule(
-  'poll-microsoft',
-  '* * * * *',
-  $$
-    select net.http_post(
-      url     => 'https://swfnxitaxbydcyyffxam.supabase.co/functions/v1/poll-microsoft',
-      headers => jsonb_build_object(
-        'Content-Type',  'application/json',
-        'Authorization', 'Bearer ' || current_setting('app.service_role_key', true)
-      ),
-      body    => '{}'::jsonb
-    );
-  $$
-);
