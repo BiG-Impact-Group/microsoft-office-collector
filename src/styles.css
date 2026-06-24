@@ -374,3 +374,180 @@ html, body {
 .cat-primary    { background: #e7f0fb; color: #0f6cbd; }
 .cat-promotions { background: #fdf1d6; color: #8a6d00; }
 .cat-junk       { background: #ececec; color: #6b6b6b; }
+
+/* ── Utilities ────────────────────────────────────────────── */
+
+.hidden { display: none !important; }
+
+/* ── Icon button (settings gear) ──────────────────────────── */
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.icon-btn:hover {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+/* ── Modal ────────────────────────────────────────────────── */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 100;
+}
+
+.modal-card {
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modal-header h2 {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.modal-close {
+  border: none;
+  background: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.modal-section {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modal-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.modal-value {
+  font-size: 0.95rem;
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.modal-actions-row {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.6rem;
+}
+
+.link-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--color-accent);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.link-btn:hover { text-decoration: underline; }
+
+.modal-subform {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.modal-subform input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font: inherit;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.modal-subform input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(15, 107, 189, 0.2);
+}
+
+.btn-sm {
+  padding: 0.45rem 0.8rem;
+  font-size: 0.85rem;
+  width: auto;
+}
+
+.modal-msg {
+  flex-basis: 100%;
+  font-size: 0.8rem;
+  margin: 0;
+  min-height: 1em;
+  color: var(--color-text-muted);
+}
+
+.modal-msg.success { color: #1a7f43; }
+.modal-msg.error   { color: var(--color-danger); }
+
+.modal-footer {
+  padding: 1rem 1.25rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.modal-warning {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--color-text);
+}
+
+/* Stacked confirm dialog sits above the settings modal */
+.modal-overlay-top { z-index: 110; }
+
+.btn-danger-solid {
+  background: var(--color-danger);
+  color: #fff;
+  border: 1px solid var(--color-danger);
+}
+
+.btn-danger-solid:hover { background: #b3261e; border-color: #b3261e; }
+
+.btn-danger-solid:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

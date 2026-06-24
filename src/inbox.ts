@@ -1,8 +1,9 @@
-import { getSession, signOut } from "./auth.js";
+import { getSession } from "./auth.js";
 import { getMicrosoftAccount, fetchEmails } from "./emails.js";
 import type { Email, EmailCategory } from "./emails.js";
 import { renderEmailList } from "./emailList.js";
 import { renderEmailViewer, clearEmailViewer } from "./emailViewer.js";
+import { openSettings } from "./settingsModal.js";
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -23,6 +24,8 @@ let selectedId: string | null = null;
 let accountId: string | null = null;
 let emailCache: Email[] = [];
 let activeCategory: TabKey = "all";
+let signInEmail = "";
+let microsoftEmail: string | null = null;
 
 async function init(): Promise<void> {
   // Guard: redirect to landing if not authenticated
@@ -32,9 +35,9 @@ async function init(): Promise<void> {
     return;
   }
 
-  document.getElementById("signout-btn")!.addEventListener("click", async () => {
-    await signOut();
-    window.location.href = "/";
+  signInEmail = session.user.email ?? "";
+  document.getElementById("settings-btn")!.addEventListener("click", () => {
+    openSettings({ signInEmail, microsoftEmail });
   });
 
   // Find the connected Microsoft account
@@ -49,6 +52,7 @@ async function init(): Promise<void> {
       return;
     }
     accountId = account.id;
+    microsoftEmail = account.provider_account_email;
   } catch {
     listEl.innerHTML = `<p class="empty-state">Failed to load account. Try refreshing.</p>`;
     return;
