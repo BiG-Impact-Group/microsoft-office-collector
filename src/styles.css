@@ -527,4 +527,27 @@ html, body {
   padding: 1rem 1.25rem;
   display: flex;
   justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.modal-warning {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--color-text);
+}
+
+/* Stacked confirm dialog sits above the settings modal */
+.modal-overlay-top { z-index: 110; }
+
+.btn-danger-solid {
+  background: var(--color-danger);
+  color: #fff;
+  border: 1px solid var(--color-danger);
+}
+
+.btn-danger-solid:hover { background: #b3261e; border-color: #b3261e; }
+
+.btn-danger-solid:disabled {
+  opacity: 0.6;
+  cursor: default;
 }

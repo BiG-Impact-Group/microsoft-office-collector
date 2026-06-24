@@ -1,4 +1,4 @@
-import { signOut, updateEmail, updatePassword } from "./auth.js";
+import { signOut, updateEmail, updatePassword, deleteAccount } from "./auth.js";
 
 interface SettingsOpts {
   signInEmail: string;
@@ -50,6 +50,11 @@ export function openSettings(opts: SettingsOpts): void {
             ? `Microsoft &middot; ${escapeHtml(opts.microsoftEmail)}`
             : "None connected"
         }</div>
+      </div>
+
+      <div class="modal-section">
+        <div class="modal-label">Danger zone</div>
+        <button class="btn btn-danger" id="delete-account" type="button">Delete account</button>
       </div>
 
       <div class="modal-footer">
@@ -114,6 +119,53 @@ export function openSettings(opts: SettingsOpts): void {
   document.getElementById("settings-signout")!.addEventListener("click", async () => {
     await signOut();
     window.location.href = "/";
+  });
+
+  document.getElementById("delete-account")!.addEventListener("click", openDeleteConfirm);
+}
+
+/** Confirmation popup for the irreversible account deletion. */
+function openDeleteConfirm(): void {
+  if (document.getElementById("delete-confirm-overlay")) return;
+
+  const overlay = document.createElement("div");
+  overlay.id = "delete-confirm-overlay";
+  overlay.className = "modal-overlay modal-overlay-top";
+  overlay.innerHTML = `
+    <div class="modal-card" role="alertdialog" aria-modal="true" aria-label="Confirm account deletion">
+      <div class="modal-header"><h2>Delete account?</h2></div>
+      <div class="modal-section">
+        <p class="modal-warning">This permanently deletes your account, the linked
+        Microsoft connection, and all synced email. This <strong>cannot be undone</strong>.</p>
+        <p class="modal-msg error" id="delete-msg"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="delete-cancel" type="button">Cancel</button>
+        <button class="btn btn-danger-solid" id="delete-confirm" type="button">Delete permanently</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const closeConfirm = () => overlay.remove();
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closeConfirm();
+  });
+  document.getElementById("delete-cancel")!.addEventListener("click", closeConfirm);
+
+  document.getElementById("delete-confirm")!.addEventListener("click", async () => {
+    const btn = document.getElementById("delete-confirm") as HTMLButtonElement;
+    const msg = document.getElementById("delete-msg")!;
+    btn.disabled = true;
+    setMsg(msg, "Deleting…", "");
+    try {
+      await deleteAccount();
+      await signOut();
+      window.location.href = "/";
+    } catch (err) {
+      btn.disabled = false;
+      setMsg(msg, errText(err, "Failed to delete account."), "error");
+    }
   });
 }
 
