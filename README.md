@@ -103,10 +103,12 @@ Row-Level Security is enabled so users can only read their own accounts and emai
 - **Least privilege:** the Azure app registration requests only `Mail.Read` and
   `User.Read` (plus `offline_access` for refresh tokens). It cannot send, delete,
   or modify mail.
-- **Token handling:** OAuth tokens are stored server-side in Postgres, never
-  exposed to the browser. Access is gated by RLS. Tokens should be encrypted at
-  rest — see the "Open decisions" below for the chosen mechanism (e.g. Supabase
-  Vault / pgsodium vs. application-level encryption).
+- **Token handling:** OAuth tokens are encrypted **application-side** with
+  AES-256-GCM (Web Crypto) inside the edge functions before being written to
+  Postgres, so the database only ever holds opaque ciphertext. The 32-byte key
+  lives in the `TOKEN_ENCRYPTION_KEY` edge-function secret, never in the DB or
+  client bundle. Rows are additionally gated by RLS; only the service role
+  (edge functions) ever reads token columns.
 - **Secrets:** Azure client ID/secret and Supabase service-role key live only in
   edge-function environment variables, never in the client bundle or git.
 
@@ -145,10 +147,14 @@ npm run dev
 | `VITE_SUPABASE_URL`             | client     | Supabase project URL                     |
 | `VITE_SUPABASE_ANON_KEY`        | client     | Supabase anon/public key                 |
 | `SUPABASE_SERVICE_ROLE_KEY`     | edge fns   | Server-side DB access for cron/callback  |
+| `TOKEN_ENCRYPTION_KEY`          | edge fns   | base64 32-byte AES-256-GCM token key      |
 | `AZURE_CLIENT_ID`               | edge fns   | Entra ID app registration client ID      |
 | `AZURE_CLIENT_SECRET`           | edge fns   | Entra ID client secret                   |
 | `AZURE_REDIRECT_URI`            | both       | OAuth callback URL                       |
 | `AZURE_TENANT`                  | edge fns   | Tenant (`common` for multi-tenant)       |
+
+> Setting up the Azure app registration that supplies these values:
+> see [`docs/AZURE_SETUP.md`](./docs/AZURE_SETUP.md).
 
 ---
 
@@ -157,15 +163,15 @@ npm run dev
 - [x] Repository initialized
 - [x] README + long-term goals
 - [x] Project structure document
-- [ ] App scaffold (frontend + Supabase config)
-- [ ] Supabase schema + RLS migrations
-- [ ] Landing page + Supabase auth
-- [ ] "Connect my email" → Azure OAuth
-- [ ] `oauth-callback` edge function
-- [ ] `poll-microsoft` cron edge function (60s)
-- [ ] Two-pane email reader UI
-- [ ] Code review + manual test
-- [ ] Pull request
+- [x] App scaffold (frontend + Supabase config)
+- [x] Supabase schema + RLS migrations
+- [x] Landing page + Supabase auth
+- [x] "Connect my email" → Azure OAuth
+- [x] `oauth-callback` edge function
+- [x] `poll-microsoft` cron edge function (60s)
+- [x] Two-pane email reader UI
+- [x] Code review + frontend manual test (backend flows pending live Azure/Supabase creds)
+- [ ] Pull request (blocked: no git remote configured yet)
 
 ---
 
@@ -174,8 +180,12 @@ npm run dev
 These are intentionally left open to settle during the brainstorming/planning
 step rather than assumed:
 
-1. **Token encryption at rest** — Supabase Vault / pgsodium vs. application-level.
-2. **Monorepo layout** — whether this branch shares a repo/package layout with
+1. **Monorepo layout** — whether this branch shares a repo/package layout with
    the coworker's Google branch, which affects where shared code lives.
 
-_(Resolved: frontend is plain TypeScript + HTML bundled with Vite — no UI framework.)_
+_(Resolved: frontend is plain TypeScript + HTML bundled with Vite — no UI
+framework.)_
+
+_(Resolved: token encryption at rest is **application-level AES-256-GCM** in the
+edge functions — pgsodium's server-side key management is unavailable on the
+project's Postgres 17 instance, and Vault-per-token was rejected as awkward.)_

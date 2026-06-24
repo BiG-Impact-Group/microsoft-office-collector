@@ -22,3 +22,6 @@ npm-debug.log*
 .DS_Store
 .vscode/
 .idea/
+
+# Local Claude settings (may contain command strings with secrets)
+.claude/settings.local.json
