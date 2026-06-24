@@ -3,6 +3,8 @@ import { decryptToken, encryptToken } from "../_shared/crypto.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+// Shared secret the pg_cron job presents in the x-poll-secret header.
+const POLL_SECRET = Deno.env.get("POLL_SECRET")!;
 const AZURE_CLIENT_ID = Deno.env.get("AZURE_CLIENT_ID")!;
 const AZURE_CLIENT_SECRET = Deno.env.get("AZURE_CLIENT_SECRET")!;
 const AZURE_TENANT = Deno.env.get("AZURE_TENANT") ?? "common";
@@ -30,9 +32,10 @@ interface GraphMessage {
 }
 
 Deno.serve(async (req: Request) => {
-  // ── Auth: only accept calls from the pg_cron job (service role key) ──
-  const authHeader = req.headers.get("Authorization");
-  if (authHeader !== `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`) {
+  // ── Auth: the pg_cron job presents a shared secret in x-poll-secret.
+  // (The gateway also enforces a valid JWT via verify_jwt; the cron sends the
+  // anon key for that. We avoid putting the service-role key in a DB setting.)
+  if (req.headers.get("x-poll-secret") !== POLL_SECRET) {
     return json({ error: "Forbidden" }, 403);
   }
 
