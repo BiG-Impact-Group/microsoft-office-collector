@@ -21,6 +21,8 @@ interface ConnectedAccount {
   last_synced_at: string | null;
 }
 
+type Category = "urgent" | "primary" | "promotions" | "junk";
+
 interface GraphMessage {
   id: string;
   subject: string | null;
@@ -29,6 +31,9 @@ interface GraphMessage {
   body: { content: string; contentType: string } | null;
   receivedDateTime: string;
   isRead: boolean;
+  importance: "low" | "normal" | "high" | null;
+  inferenceClassification: "focused" | "other" | null;
+  flag: { flagStatus: "notFlagged" | "flagged" | "complete" } | null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -97,11 +102,15 @@ async function syncAccount(
     activeAccessToken = await refreshAccessToken(db, account, refreshToken);
   }
 
-  // ── 3. Fetch new messages from Graph ─────────────────────
+  // ── 3. Fetch new messages from the Inbox and Junk Email folders ──
   const since = account.last_synced_at ?? new Date(0).toISOString();
-  const messages = await fetchNewMessages(activeAccessToken, since);
+  const [inboxMsgs, junkMsgs] = await Promise.all([
+    fetchNewMessages(activeAccessToken, since, "inbox"),
+    fetchNewMessages(activeAccessToken, since, "junkemail"),
+  ]);
 
-  if (messages.length === 0) {
+  const all = [...inboxMsgs, ...junkMsgs];
+  if (all.length === 0) {
     // Nothing new. Do NOT advance the watermark to now(): a message could
     // arrive with a receivedDateTime between this query and now(), and a
     // now() watermark would skip it on the next poll. Leaving the watermark
@@ -109,9 +118,46 @@ async function syncAccount(
     return;
   }
 
-  // ── 4. Upsert emails (deduplicated by unique constraint) ──
-  const rows = messages.map((msg) => ({
-    account_id: account.id,
+  // ── 4. Classify + upsert (deduped by unique constraint) ───
+  // Inbox messages are classified from Graph signals; anything in the Junk
+  // folder is always 'junk' regardless of those signals.
+  const rows = [
+    ...inboxMsgs.map((m) => toRow(account.id, m, classifyCategory(m))),
+    ...junkMsgs.map((m) => toRow(account.id, m, "junk")),
+  ];
+
+  const { error: upsertErr } = await db
+    .from("emails")
+    .upsert(rows, { onConflict: "account_id,provider_message_id", ignoreDuplicates: true });
+
+  if (upsertErr) {
+    throw new Error(`Failed to upsert emails: ${upsertErr.message}`);
+  }
+
+  // ── 5. Advance last_synced_at to the newest message actually ingested
+  // (across both folders). Using the max receivedDateTime (not now())
+  // guarantees the filter window never jumps past a message we haven't stored.
+  const newest = all.reduce(
+    (max, m) => (m.receivedDateTime > max ? m.receivedDateTime : max),
+    all[0].receivedDateTime
+  );
+  await db
+    .from("connected_accounts")
+    .update({ last_synced_at: newest })
+    .eq("id", account.id);
+}
+
+// Derive a category from Microsoft Graph signals (junk is handled by folder).
+function classifyCategory(msg: GraphMessage): Exclude<Category, "junk"> {
+  if (msg.importance === "high" || msg.flag?.flagStatus === "flagged") return "urgent";
+  // Focused Inbox "other" is where newsletters/promotions/subscriptions land.
+  if (msg.inferenceClassification === "other") return "promotions";
+  return "primary";
+}
+
+function toRow(accountId: string, msg: GraphMessage, category: Category) {
+  return {
+    account_id: accountId,
     provider_message_id: msg.id,
     subject: msg.subject ?? "(no subject)",
     from_address: msg.from?.emailAddress?.address ?? "",
@@ -123,27 +169,10 @@ async function syncAccount(
       : "",
     received_at: msg.receivedDateTime,
     is_read: msg.isRead,
-  }));
-
-  const { error: upsertErr } = await db
-    .from("emails")
-    .upsert(rows, { onConflict: "account_id,provider_message_id", ignoreDuplicates: true });
-
-  if (upsertErr) {
-    throw new Error(`Failed to upsert emails: ${upsertErr.message}`);
-  }
-
-  // ── 5. Advance last_synced_at to the newest message actually ingested.
-  // Using the max receivedDateTime (not now()) guarantees the filter window
-  // never jumps past a message we haven't stored.
-  const newest = messages.reduce(
-    (max, m) => (m.receivedDateTime > max ? m.receivedDateTime : max),
-    messages[0].receivedDateTime
-  );
-  await db
-    .from("connected_accounts")
-    .update({ last_synced_at: newest })
-    .eq("id", account.id);
+    category,
+    importance: msg.importance ?? null,
+    inference_classification: msg.inferenceClassification ?? null,
+  };
 }
 
 async function refreshAccessToken(
@@ -204,15 +233,16 @@ const MAX_PAGES = 20;
 
 async function fetchNewMessages(
   accessToken: string,
-  since: string
+  since: string,
+  folder: "inbox" | "junkemail"
 ): Promise<GraphMessage[]> {
   // ISO 8601 format required by OData $filter.
   // Order ASCENDING and follow @odata.nextLink so we ingest the *oldest*
   // unsynced messages first and never drop a page beyond $top.
   const sinceEncoded = encodeURIComponent(since);
   let url: string | null =
-    "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages" +
-    `?$select=id,subject,from,bodyPreview,body,receivedDateTime,isRead` +
+    `https://graph.microsoft.com/v1.0/me/mailFolders/${folder}/messages` +
+    `?$select=id,subject,from,bodyPreview,body,receivedDateTime,isRead,importance,inferenceClassification,flag` +
     `&$filter=receivedDateTime gt ${sinceEncoded}` +
     `&$orderby=receivedDateTime asc` +
     `&$top=50`;

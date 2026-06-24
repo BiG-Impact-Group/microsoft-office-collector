@@ -27,7 +27,7 @@ export function renderEmailList(
           tabindex="0"
           aria-label="${escapeAttr(email.subject)} from ${escapeAttr(email.from_address)}"
         >
-          <div class="email-item-from">${escapeHtml(email.from_address)} · ${date}</div>
+          <div class="email-item-from">${email.category ? `<span class="cat-pill cat-${email.category}">${catLabel(email.category)}</span> ` : ""}${escapeHtml(email.from_address)} · ${date}</div>
           <div class="email-item-subject">${escapeHtml(email.subject)}</div>
           <div class="email-item-preview">${escapeHtml(email.preview)}</div>
         </div>
@@ -47,6 +47,16 @@ export function renderEmailList(
       }
     });
   });
+}
+
+function catLabel(category: string): string {
+  switch (category) {
+    case "urgent": return "Urgent";
+    case "primary": return "Primary";
+    case "promotions": return "Promo";
+    case "junk": return "Junk";
+    default: return category;
+  }
 }
 
 function formatDate(iso: string): string {

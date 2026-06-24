@@ -309,3 +309,68 @@ html, body {
   font-size: 0.88rem;
   text-align: center;
 }
+
+/* ── Category tabs ────────────────────────────────────────── */
+
+.category-tabs {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.cat-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.cat-tab:hover {
+  background: var(--color-bg);
+}
+
+.cat-tab.active {
+  background: var(--color-selected);
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  font-weight: 600;
+}
+
+.cat-count {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.cat-tab.active .cat-count {
+  color: var(--color-accent);
+}
+
+/* ── Per-item category pill ───────────────────────────────── */
+
+.cat-pill {
+  display: inline-block;
+  padding: 0.02rem 0.32rem;
+  border-radius: 4px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+
+.cat-urgent     { background: #fde7e9; color: #b3261e; }
+.cat-primary    { background: #e7f0fb; color: #0f6cbd; }
+.cat-promotions { background: #fdf1d6; color: #8a6d00; }
+.cat-junk       { background: #ececec; color: #6b6b6b; }
