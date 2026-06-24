@@ -1,5 +1,7 @@
 import { supabase } from "./lib/supabase.js";
 
+export type EmailCategory = "urgent" | "primary" | "promotions" | "junk";
+
 export interface Email {
   id: string;
   account_id: string;
@@ -9,6 +11,7 @@ export interface Email {
   body_html: string;
   received_at: string;
   is_read: boolean;
+  category: EmailCategory | null;
 }
 
 export interface ConnectedAccount {
@@ -30,7 +33,7 @@ export async function getMicrosoftAccount(): Promise<ConnectedAccount | null> {
 export async function fetchEmails(accountId: string): Promise<Email[]> {
   const { data, error } = await supabase
     .from("emails")
-    .select("id, account_id, subject, from_address, preview, body_html, received_at, is_read")
+    .select("id, account_id, subject, from_address, preview, body_html, received_at, is_read, category")
     .eq("account_id", accountId)
     .order("received_at", { ascending: false })
     .limit(100);
