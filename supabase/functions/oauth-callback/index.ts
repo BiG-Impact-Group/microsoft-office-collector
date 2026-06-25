@@ -67,7 +67,7 @@ Deno.serve(async (req: Request) => {
         redirect_uri: AZURE_REDIRECT_URI,
         grant_type: "authorization_code",
         code,
-        scope: "offline_access User.Read Mail.Read",
+        scope: "offline_access User.Read Mail.Read Mail.ReadWrite Mail.Send",
       }),
     }
   );

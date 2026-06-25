@@ -18,6 +18,13 @@ export function renderEmailList(
       const isSelected = email.id === selectedId;
       const isUnread = !email.is_read;
       const date = formatDate(email.received_at);
+      // In Sent, show who it went to; elsewhere show the sender.
+      const who =
+        email.category === "sent"
+          ? email.to_recipients[0]
+            ? `To: ${email.to_recipients[0]}`
+            : "(no recipient)"
+          : email.from_address;
 
       return `
         <div
@@ -27,7 +34,7 @@ export function renderEmailList(
           tabindex="0"
           aria-label="${escapeAttr(email.subject)} from ${escapeAttr(email.from_address)}"
         >
-          <div class="email-item-from">${email.category ? `<span class="cat-pill cat-${email.category}">${catLabel(email.category)}</span> ` : ""}${escapeHtml(email.from_address)} · ${date}</div>
+          <div class="email-item-from">${email.category ? `<span class="cat-pill cat-${email.category}">${catLabel(email.category)}</span> ` : ""}${escapeHtml(who)} · ${date}</div>
           <div class="email-item-subject">${escapeHtml(email.subject)}</div>
           <div class="email-item-preview">${escapeHtml(email.preview)}</div>
         </div>
@@ -55,6 +62,7 @@ function catLabel(category: string): string {
     case "primary": return "Primary";
     case "promotions": return "Promo";
     case "junk": return "Junk";
+    case "sent": return "Sent";
     default: return category;
   }
 }

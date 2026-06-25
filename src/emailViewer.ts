@@ -1,4 +1,5 @@
 import type { Email } from "./emails.js";
+import { openCompose } from "./composeModal.js";
 
 // The previously-rendered body is loaded as a Blob URL; track it so we can
 // revoke it when switching emails (avoids leaking object URLs).
@@ -26,11 +27,15 @@ export function renderEmailViewer(container: HTMLElement, email: Email): void {
 
   container.innerHTML = `
     <div class="email-viewer-header">
-      <h2>${escapeHtml(email.subject)}</h2>
-      <div class="email-viewer-meta">
-        From: ${escapeHtml(email.from_address)} &nbsp;·&nbsp;
-        ${formatDate(email.received_at)}
+      <div class="email-viewer-head-text">
+        <h2>${escapeHtml(email.subject)}</h2>
+        <div class="email-viewer-meta">
+          From: ${escapeHtml(email.from_address)} &nbsp;·&nbsp;
+          ${formatDate(email.received_at)}
+        </div>
+        <div class="email-viewer-recipients" id="viewer-recipients"></div>
       </div>
+      <button class="btn btn-secondary btn-sm" id="reply-btn">Reply</button>
     </div>
     <div class="email-viewer-body">
       <iframe
@@ -49,6 +54,52 @@ export function renderEmailViewer(container: HTMLElement, email: Email): void {
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });
   currentBlobUrl = URL.createObjectURL(blob);
   iframe.src = currentBlobUrl;
+
+  // To / Cc rows: collapsed to one address (+ "…") until expanded.
+  const recipEl = container.querySelector("#viewer-recipients") as HTMLElement;
+  const expanded = { to: false, cc: false };
+  function renderRecipients(): void {
+    recipEl.innerHTML =
+      recipientRow("To", email.to_recipients, expanded.to, "to") +
+      recipientRow("Cc", email.cc_recipients, expanded.cc, "cc");
+    recipEl.querySelectorAll<HTMLElement>("[data-recip-toggle]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.recipToggle as "to" | "cc";
+        expanded[key] = !expanded[key];
+        renderRecipients();
+      });
+    });
+  }
+  renderRecipients();
+
+  container.querySelector("#reply-btn")!.addEventListener("click", () => {
+    openCompose({
+      to: email.from_address,
+      subject: replySubject(email.subject),
+    });
+  });
+}
+
+function replySubject(subject: string): string {
+  return /^re:/i.test(subject.trim()) ? subject : `Re: ${subject}`;
+}
+
+function recipientRow(
+  label: string,
+  addresses: string[],
+  isExpanded: boolean,
+  key: "to" | "cc"
+): string {
+  if (!addresses || addresses.length === 0) return "";
+
+  const prefix = `<span class="recip-label">${label}:</span> `;
+  if (addresses.length === 1) {
+    return `<div class="recip-row">${prefix}${escapeHtml(addresses[0])}</div>`;
+  }
+  if (!isExpanded) {
+    return `<div class="recip-row">${prefix}${escapeHtml(addresses[0])} <button class="recip-toggle" data-recip-toggle="${key}">…(+${addresses.length - 1})</button></div>`;
+  }
+  return `<div class="recip-row">${prefix}${addresses.map(escapeHtml).join(", ")} <button class="recip-toggle" data-recip-toggle="${key}">Hide</button></div>`;
 }
 
 export function clearEmailViewer(container: HTMLElement): void {

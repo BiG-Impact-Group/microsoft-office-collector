@@ -1,16 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { decryptToken, encryptToken } from "../_shared/crypto.ts";
+import { getValidAccessToken } from "../_shared/graphToken.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 // Shared secret the pg_cron job presents in the x-poll-secret header.
 const POLL_SECRET = Deno.env.get("POLL_SECRET")!;
-const AZURE_CLIENT_ID = Deno.env.get("AZURE_CLIENT_ID")!;
-const AZURE_CLIENT_SECRET = Deno.env.get("AZURE_CLIENT_SECRET")!;
-const AZURE_TENANT = Deno.env.get("AZURE_TENANT") ?? "common";
-
-// ms before expiry at which we proactively refresh the token (5 min)
-const REFRESH_BUFFER_MS = 5 * 60 * 1000;
 
 interface ConnectedAccount {
   id: string;
@@ -21,12 +15,18 @@ interface ConnectedAccount {
   last_synced_at: string | null;
 }
 
-type Category = "urgent" | "primary" | "promotions" | "junk";
+type Category = "urgent" | "primary" | "promotions" | "junk" | "sent";
+
+interface Recipient {
+  emailAddress: { address: string };
+}
 
 interface GraphMessage {
   id: string;
   subject: string | null;
   from: { emailAddress: { address: string } } | null;
+  toRecipients: Recipient[] | null;
+  ccRecipients: Recipient[] | null;
   bodyPreview: string | null;
   body: { content: string; contentType: string } | null;
   receivedDateTime: string;
@@ -82,34 +82,18 @@ async function syncAccount(
   db: ReturnType<typeof createClient>,
   account: ConnectedAccount
 ): Promise<void> {
-  // ── 1. Decrypt tokens (app-side AES-256-GCM) ──────────────
-  let accessToken: string;
-  let refreshToken: string;
-  try {
-    accessToken = await decryptToken(account.access_token_encrypted);
-    refreshToken = await decryptToken(account.refresh_token_encrypted);
-  } catch (err) {
-    throw new Error(
-      `Failed to decrypt tokens: ${err instanceof Error ? err.message : err}`
-    );
-  }
+  // ── 1. Valid access token (decrypts; refreshes + persists if near expiry) ──
+  const activeAccessToken = await getValidAccessToken(db, account);
 
-  let activeAccessToken = accessToken;
-
-  // ── 2. Proactive token refresh ────────────────────────────
-  const expiresAt = account.token_expires_at ? new Date(account.token_expires_at).getTime() : 0;
-  if (Date.now() + REFRESH_BUFFER_MS >= expiresAt) {
-    activeAccessToken = await refreshAccessToken(db, account, refreshToken);
-  }
-
-  // ── 3. Fetch new messages from the Inbox and Junk Email folders ──
+  // ── 3. Fetch new messages from Inbox, Junk, and Sent Items ──
   const since = account.last_synced_at ?? new Date(0).toISOString();
-  const [inboxMsgs, junkMsgs] = await Promise.all([
+  const [inboxMsgs, junkMsgs, sentMsgs] = await Promise.all([
     fetchNewMessages(activeAccessToken, since, "inbox"),
     fetchNewMessages(activeAccessToken, since, "junkemail"),
+    fetchNewMessages(activeAccessToken, since, "sentitems"),
   ]);
 
-  const all = [...inboxMsgs, ...junkMsgs];
+  const all = [...inboxMsgs, ...junkMsgs, ...sentMsgs];
   if (all.length === 0) {
     // Nothing new. Do NOT advance the watermark to now(): a message could
     // arrive with a receivedDateTime between this query and now(), and a
@@ -124,6 +108,7 @@ async function syncAccount(
   const rows = [
     ...inboxMsgs.map((m) => toRow(account.id, m, classifyCategory(m))),
     ...junkMsgs.map((m) => toRow(account.id, m, "junk")),
+    ...sentMsgs.map((m) => toRow(account.id, m, "sent")),
   ];
 
   const { error: upsertErr } = await db
@@ -147,9 +132,8 @@ async function syncAccount(
     .eq("id", account.id);
 }
 
-// Derive a category from Microsoft Graph signals (junk is handled by folder).
-function classifyCategory(msg: GraphMessage): Exclude<Category, "junk"> {
-  if (msg.importance === "high" || msg.flag?.flagStatus === "flagged") return "urgent";
+// Derive a category for inbox messages (junk/sent are handled by folder).
+function classifyCategory(msg: GraphMessage): "primary" | "promotions" {
   // Focused Inbox "other" is where newsletters/promotions/subscriptions land.
   if (msg.inferenceClassification === "other") return "promotions";
   return "primary";
@@ -172,57 +156,9 @@ function toRow(accountId: string, msg: GraphMessage, category: Category) {
     category,
     importance: msg.importance ?? null,
     inference_classification: msg.inferenceClassification ?? null,
+    to_recipients: (msg.toRecipients ?? []).map((r) => r.emailAddress.address),
+    cc_recipients: (msg.ccRecipients ?? []).map((r) => r.emailAddress.address),
   };
-}
-
-async function refreshAccessToken(
-  db: ReturnType<typeof createClient>,
-  account: ConnectedAccount,
-  refreshToken: string
-): Promise<string> {
-  const res = await fetch(
-    `https://login.microsoftonline.com/${AZURE_TENANT}/oauth2/v2.0/token`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: AZURE_CLIENT_ID,
-        client_secret: AZURE_CLIENT_SECRET,
-        grant_type: "refresh_token",
-        refresh_token: refreshToken,
-        scope: "offline_access User.Read Mail.Read",
-      }),
-    }
-  );
-
-  if (!res.ok) {
-    throw new Error(`Token refresh failed: ${await res.text()}`);
-  }
-
-  const tokens = await res.json() as {
-    access_token: string;
-    refresh_token?: string;
-    expires_in: number;
-  };
-
-  const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
-
-  // Re-encrypt and persist updated tokens. encryptToken throws on failure,
-  // which aborts before the update so we never overwrite good tokens.
-  const newRefresh = tokens.refresh_token ?? refreshToken;
-  const encAccess = await encryptToken(tokens.access_token);
-  const encRefresh = await encryptToken(newRefresh);
-
-  await db
-    .from("connected_accounts")
-    .update({
-      access_token_encrypted: encAccess,
-      refresh_token_encrypted: encRefresh,
-      token_expires_at: tokenExpiresAt,
-    })
-    .eq("id", account.id);
-
-  return tokens.access_token;
 }
 
 // Cap pages so one very backlogged account can't run the function forever.
@@ -234,7 +170,7 @@ const MAX_PAGES = 20;
 async function fetchNewMessages(
   accessToken: string,
   since: string,
-  folder: "inbox" | "junkemail"
+  folder: "inbox" | "junkemail" | "sentitems"
 ): Promise<GraphMessage[]> {
   // ISO 8601 format required by OData $filter.
   // Order ASCENDING and follow @odata.nextLink so we ingest the *oldest*
@@ -242,7 +178,7 @@ async function fetchNewMessages(
   const sinceEncoded = encodeURIComponent(since);
   let url: string | null =
     `https://graph.microsoft.com/v1.0/me/mailFolders/${folder}/messages` +
-    `?$select=id,subject,from,bodyPreview,body,receivedDateTime,isRead,importance,inferenceClassification,flag` +
+    `?$select=id,subject,from,toRecipients,ccRecipients,bodyPreview,body,receivedDateTime,isRead,importance,inferenceClassification,flag` +
     `&$filter=receivedDateTime gt ${sinceEncoded}` +
     `&$orderby=receivedDateTime asc` +
     `&$top=50`;

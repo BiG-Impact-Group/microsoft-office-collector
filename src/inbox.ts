@@ -4,6 +4,7 @@ import type { Email, EmailCategory } from "./emails.js";
 import { renderEmailList } from "./emailList.js";
 import { renderEmailViewer, clearEmailViewer } from "./emailViewer.js";
 import { openSettings } from "./settingsModal.js";
+import { openCompose } from "./composeModal.js";
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -14,10 +15,10 @@ const tabsEl = document.getElementById("category-tabs")!;
 type TabKey = EmailCategory | "all";
 const TABS: { key: TabKey; label: string }[] = [
   { key: "all", label: "All" },
-  { key: "urgent", label: "Urgent" },
   { key: "primary", label: "Primary" },
   { key: "promotions", label: "Promotions" },
   { key: "junk", label: "Junk" },
+  { key: "sent", label: "Sent" },
 ];
 
 let selectedId: string | null = null;
@@ -38,6 +39,9 @@ async function init(): Promise<void> {
   signInEmail = session.user.email ?? "";
   document.getElementById("settings-btn")!.addEventListener("click", () => {
     openSettings({ signInEmail, microsoftEmail });
+  });
+  document.getElementById("compose-btn")!.addEventListener("click", () => {
+    openCompose();
   });
 
   // Find the connected Microsoft account
@@ -78,7 +82,8 @@ async function loadEmails(): Promise<void> {
 }
 
 function filteredEmails(): Email[] {
-  if (activeCategory === "all") return emailCache;
+  // "All" means all received mail — Sent has its own tab.
+  if (activeCategory === "all") return emailCache.filter((e) => e.category !== "sent");
   return emailCache.filter((e) => e.category === activeCategory);
 }
 
@@ -88,13 +93,15 @@ function renderList(): void {
 
 function renderTabs(): void {
   const countFor = (key: TabKey) =>
-    key === "all" ? emailCache.length : emailCache.filter((e) => e.category === key).length;
+    key === "all"
+      ? emailCache.filter((e) => e.category !== "sent").length
+      : emailCache.filter((e) => e.category === key).length;
 
   tabsEl.innerHTML = TABS.map((t) => {
     const isActive = t.key === activeCategory;
     return `
       <button
-        class="cat-tab${isActive ? " active" : ""}"
+        class="cat-tab${isActive ? " active" : ""}${t.key === "sent" ? " cat-tab-right" : ""}"
         data-cat="${t.key}"
         role="tab"
         aria-selected="${isActive}"
