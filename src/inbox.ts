@@ -26,8 +26,6 @@ let accountId: string | null = null;
 let emailCache: Email[] = [];
 let activeCategory: TabKey = "all";
 let signInEmail = "";
-let microsoftEmail: string | null = null;
-let microsoftActive = false;
 
 async function init(): Promise<void> {
   // Guard: redirect to landing if not authenticated
@@ -39,7 +37,7 @@ async function init(): Promise<void> {
 
   signInEmail = session.user.email ?? "";
   document.getElementById("settings-btn")!.addEventListener("click", () => {
-    openSettings({ signInEmail, microsoftEmail, microsoftActive });
+    openSettings({ signInEmail });
   });
   document.getElementById("compose-btn")!.addEventListener("click", () => {
     openCompose();
@@ -57,8 +55,6 @@ async function init(): Promise<void> {
       return;
     }
     accountId = account.id;
-    microsoftEmail = account.provider_account_email;
-    microsoftActive = account.is_active;
   } catch {
     listEl.innerHTML = `<p class="empty-state">Failed to load account. Try refreshing.</p>`;
     return;

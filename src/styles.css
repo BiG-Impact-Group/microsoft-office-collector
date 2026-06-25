@@ -331,6 +331,11 @@ html, body {
 
 .recip-toggle:hover { text-decoration: underline; }
 
+.ms-disconnected {
+  color: var(--color-text-muted);
+  font-weight: normal;
+}
+
 .email-viewer-body {
   flex: 1;
   overflow: hidden;
