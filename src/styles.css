@@ -551,3 +551,54 @@ html, body {
   opacity: 0.6;
   cursor: default;
 }
+
+/* ── Inbox header actions + compose ───────────────────────── */
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.compose-card { max-width: 540px; }
+
+.compose-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+}
+
+.compose-form input,
+.compose-form textarea {
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font: inherit;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.compose-form textarea {
+  resize: vertical;
+  min-height: 140px;
+  line-height: 1.5;
+}
+
+.compose-form input:focus,
+.compose-form textarea:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(15, 107, 189, 0.2);
+}
+
+.compose-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.compose-footer .modal-msg { flex: 1; margin: 0; }
+.compose-send:disabled { opacity: 0.6; cursor: default; }

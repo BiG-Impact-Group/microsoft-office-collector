@@ -30,6 +30,34 @@ export async function getMicrosoftAccount(): Promise<ConnectedAccount | null> {
   return data as ConnectedAccount | null;
 }
 
+export interface SendEmailInput {
+  to: string[];
+  cc?: string[];
+  subject: string;
+  body: string;
+}
+
+export async function sendEmail(input: SendEmailInput): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const jwt = session?.access_token;
+  if (!jwt) throw new Error("Not signed in");
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+  const res = await fetch(`${supabaseUrl}/functions/v1/send-mail`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${jwt}`,
+    },
+    body: JSON.stringify(input),
+  });
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `Server error (${res.status})`);
+  }
+}
+
 export async function fetchEmails(accountId: string): Promise<Email[]> {
   const { data, error } = await supabase
     .from("emails")

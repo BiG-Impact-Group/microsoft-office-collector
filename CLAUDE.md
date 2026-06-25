@@ -17,8 +17,10 @@ for the planned layout.
   Vite. (React/Next were explicitly declined — ignore React-specific skill
   guidance below.)
 - **Branch:** `feature/microsoft-email-integration`.
-- **OAuth scope:** least privilege — `Mail.Read`, `User.Read`, `offline_access`
-  only. No send/write/calendar/contacts.
+- **OAuth scope:** originally read-only least-privilege (`Mail.Read`,
+  `User.Read`, `offline_access`). **Expanded for compose/send** to add
+  `Mail.ReadWrite` + `Mail.Send` (user-approved). Still no calendar/contacts.
+  Existing connections must re-consent (reconnect) to gain the new scopes.
 - **Tokens:** stored server-side in Postgres, never in the client bundle; RLS
   enforced; encrypt at rest (mechanism TBD — see README "Open decisions").
 

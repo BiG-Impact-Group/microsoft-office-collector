@@ -4,6 +4,7 @@ import type { Email, EmailCategory } from "./emails.js";
 import { renderEmailList } from "./emailList.js";
 import { renderEmailViewer, clearEmailViewer } from "./emailViewer.js";
 import { openSettings } from "./settingsModal.js";
+import { openCompose } from "./composeModal.js";
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -38,6 +39,9 @@ async function init(): Promise<void> {
   signInEmail = session.user.email ?? "";
   document.getElementById("settings-btn")!.addEventListener("click", () => {
     openSettings({ signInEmail, microsoftEmail });
+  });
+  document.getElementById("compose-btn")!.addEventListener("click", () => {
+    openCompose();
   });
 
   // Find the connected Microsoft account

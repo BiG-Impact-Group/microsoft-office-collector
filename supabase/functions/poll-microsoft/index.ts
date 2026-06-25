@@ -1,16 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { decryptToken, encryptToken } from "../_shared/crypto.ts";
+import { getValidAccessToken } from "../_shared/graphToken.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 // Shared secret the pg_cron job presents in the x-poll-secret header.
 const POLL_SECRET = Deno.env.get("POLL_SECRET")!;
-const AZURE_CLIENT_ID = Deno.env.get("AZURE_CLIENT_ID")!;
-const AZURE_CLIENT_SECRET = Deno.env.get("AZURE_CLIENT_SECRET")!;
-const AZURE_TENANT = Deno.env.get("AZURE_TENANT") ?? "common";
-
-// ms before expiry at which we proactively refresh the token (5 min)
-const REFRESH_BUFFER_MS = 5 * 60 * 1000;
 
 interface ConnectedAccount {
   id: string;
@@ -82,25 +76,8 @@ async function syncAccount(
   db: ReturnType<typeof createClient>,
   account: ConnectedAccount
 ): Promise<void> {
-  // ── 1. Decrypt tokens (app-side AES-256-GCM) ──────────────
-  let accessToken: string;
-  let refreshToken: string;
-  try {
-    accessToken = await decryptToken(account.access_token_encrypted);
-    refreshToken = await decryptToken(account.refresh_token_encrypted);
-  } catch (err) {
-    throw new Error(
-      `Failed to decrypt tokens: ${err instanceof Error ? err.message : err}`
-    );
-  }
-
-  let activeAccessToken = accessToken;
-
-  // ── 2. Proactive token refresh ────────────────────────────
-  const expiresAt = account.token_expires_at ? new Date(account.token_expires_at).getTime() : 0;
-  if (Date.now() + REFRESH_BUFFER_MS >= expiresAt) {
-    activeAccessToken = await refreshAccessToken(db, account, refreshToken);
-  }
+  // ── 1. Valid access token (decrypts; refreshes + persists if near expiry) ──
+  const activeAccessToken = await getValidAccessToken(db, account);
 
   // ── 3. Fetch new messages from the Inbox and Junk Email folders ──
   const since = account.last_synced_at ?? new Date(0).toISOString();
@@ -173,56 +150,6 @@ function toRow(accountId: string, msg: GraphMessage, category: Category) {
     importance: msg.importance ?? null,
     inference_classification: msg.inferenceClassification ?? null,
   };
-}
-
-async function refreshAccessToken(
-  db: ReturnType<typeof createClient>,
-  account: ConnectedAccount,
-  refreshToken: string
-): Promise<string> {
-  const res = await fetch(
-    `https://login.microsoftonline.com/${AZURE_TENANT}/oauth2/v2.0/token`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: AZURE_CLIENT_ID,
-        client_secret: AZURE_CLIENT_SECRET,
-        grant_type: "refresh_token",
-        refresh_token: refreshToken,
-        scope: "offline_access User.Read Mail.Read",
-      }),
-    }
-  );
-
-  if (!res.ok) {
-    throw new Error(`Token refresh failed: ${await res.text()}`);
-  }
-
-  const tokens = await res.json() as {
-    access_token: string;
-    refresh_token?: string;
-    expires_in: number;
-  };
-
-  const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
-
-  // Re-encrypt and persist updated tokens. encryptToken throws on failure,
-  // which aborts before the update so we never overwrite good tokens.
-  const newRefresh = tokens.refresh_token ?? refreshToken;
-  const encAccess = await encryptToken(tokens.access_token);
-  const encRefresh = await encryptToken(newRefresh);
-
-  await db
-    .from("connected_accounts")
-    .update({
-      access_token_encrypted: encAccess,
-      refresh_token_encrypted: encRefresh,
-      token_expires_at: tokenExpiresAt,
-    })
-    .eq("id", account.id);
-
-  return tokens.access_token;
 }
 
 // Cap pages so one very backlogged account can't run the function forever.
