@@ -1,8 +1,10 @@
 import { signOut, updateEmail, updatePassword, deleteAccount } from "./auth.js";
+import { disconnectMicrosoftAccount } from "./emails.js";
 
 interface SettingsOpts {
   signInEmail: string;
   microsoftEmail: string | null;
+  microsoftActive: boolean;
 }
 
 /**
@@ -45,11 +47,19 @@ export function openSettings(opts: SettingsOpts): void {
 
       <div class="modal-section">
         <div class="modal-label">Connected email account</div>
-        <div class="modal-value">${
+        <div class="modal-value" id="ms-value">${
           opts.microsoftEmail
             ? `Microsoft &middot; ${escapeHtml(opts.microsoftEmail)}`
             : "None connected"
         }</div>
+        ${
+          opts.microsoftEmail && opts.microsoftActive
+            ? `<div class="modal-actions-row"><button class="link-btn" id="disconnect-ms" type="button">Disconnect</button></div>
+               <p class="modal-msg" id="ms-msg"></p>`
+            : opts.microsoftEmail
+              ? `<p class="modal-msg" id="ms-msg">Disconnected — existing mail is kept; reconnect from the dashboard to resume syncing.</p>`
+              : ""
+        }
       </div>
 
       <div class="modal-section">
@@ -122,6 +132,22 @@ export function openSettings(opts: SettingsOpts): void {
   });
 
   document.getElementById("delete-account")!.addEventListener("click", openDeleteConfirm);
+
+  const disconnectBtn = document.getElementById("disconnect-ms") as HTMLButtonElement | null;
+  disconnectBtn?.addEventListener("click", async () => {
+    const msg = document.getElementById("ms-msg")!;
+    disconnectBtn.disabled = true;
+    setMsg(msg, "Disconnecting…", "");
+    try {
+      await disconnectMicrosoftAccount();
+      document.getElementById("ms-value")!.textContent = "Disconnected";
+      disconnectBtn.remove();
+      setMsg(msg, "Disconnected. Existing mail is kept; reconnect from the dashboard to resume.", "success");
+    } catch (err) {
+      disconnectBtn.disabled = false;
+      setMsg(msg, errText(err, "Failed to disconnect."), "error");
+    }
+  });
 }
 
 /** Confirmation popup for the irreversible account deletion. */

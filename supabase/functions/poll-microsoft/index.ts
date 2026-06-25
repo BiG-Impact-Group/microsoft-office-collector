@@ -50,7 +50,8 @@ Deno.serve(async (req: Request) => {
   const { data: accounts, error: fetchErr } = await db
     .from("connected_accounts")
     .select("id, user_id, access_token_encrypted, refresh_token_encrypted, token_expires_at, last_synced_at")
-    .eq("provider", "microsoft");
+    .eq("provider", "microsoft")
+    .eq("is_active", true);
 
   if (fetchErr) {
     console.error("Failed to fetch accounts:", fetchErr);
