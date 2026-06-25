@@ -33,6 +33,7 @@ export function renderEmailViewer(container: HTMLElement, email: Email): void {
           From: ${escapeHtml(email.from_address)} &nbsp;·&nbsp;
           ${formatDate(email.received_at)}
         </div>
+        <div class="email-viewer-recipients" id="viewer-recipients"></div>
       </div>
       <button class="btn btn-secondary btn-sm" id="reply-btn">Reply</button>
     </div>
@@ -54,6 +55,23 @@ export function renderEmailViewer(container: HTMLElement, email: Email): void {
   currentBlobUrl = URL.createObjectURL(blob);
   iframe.src = currentBlobUrl;
 
+  // To / Cc rows: collapsed to one address (+ "…") until expanded.
+  const recipEl = container.querySelector("#viewer-recipients") as HTMLElement;
+  const expanded = { to: false, cc: false };
+  function renderRecipients(): void {
+    recipEl.innerHTML =
+      recipientRow("To", email.to_recipients, expanded.to, "to") +
+      recipientRow("Cc", email.cc_recipients, expanded.cc, "cc");
+    recipEl.querySelectorAll<HTMLElement>("[data-recip-toggle]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.recipToggle as "to" | "cc";
+        expanded[key] = !expanded[key];
+        renderRecipients();
+      });
+    });
+  }
+  renderRecipients();
+
   container.querySelector("#reply-btn")!.addEventListener("click", () => {
     openCompose({
       to: email.from_address,
@@ -64,6 +82,24 @@ export function renderEmailViewer(container: HTMLElement, email: Email): void {
 
 function replySubject(subject: string): string {
   return /^re:/i.test(subject.trim()) ? subject : `Re: ${subject}`;
+}
+
+function recipientRow(
+  label: string,
+  addresses: string[],
+  isExpanded: boolean,
+  key: "to" | "cc"
+): string {
+  if (!addresses || addresses.length === 0) return "";
+
+  const prefix = `<span class="recip-label">${label}:</span> `;
+  if (addresses.length === 1) {
+    return `<div class="recip-row">${prefix}${escapeHtml(addresses[0])}</div>`;
+  }
+  if (!isExpanded) {
+    return `<div class="recip-row">${prefix}${escapeHtml(addresses[0])} <button class="recip-toggle" data-recip-toggle="${key}">…(+${addresses.length - 1})</button></div>`;
+  }
+  return `<div class="recip-row">${prefix}${addresses.map(escapeHtml).join(", ")} <button class="recip-toggle" data-recip-toggle="${key}">Hide</button></div>`;
 }
 
 export function clearEmailViewer(container: HTMLElement): void {

@@ -17,10 +17,16 @@ interface ConnectedAccount {
 
 type Category = "urgent" | "primary" | "promotions" | "junk" | "sent";
 
+interface Recipient {
+  emailAddress: { address: string };
+}
+
 interface GraphMessage {
   id: string;
   subject: string | null;
   from: { emailAddress: { address: string } } | null;
+  toRecipients: Recipient[] | null;
+  ccRecipients: Recipient[] | null;
   bodyPreview: string | null;
   body: { content: string; contentType: string } | null;
   receivedDateTime: string;
@@ -150,6 +156,8 @@ function toRow(accountId: string, msg: GraphMessage, category: Category) {
     category,
     importance: msg.importance ?? null,
     inference_classification: msg.inferenceClassification ?? null,
+    to_recipients: (msg.toRecipients ?? []).map((r) => r.emailAddress.address),
+    cc_recipients: (msg.ccRecipients ?? []).map((r) => r.emailAddress.address),
   };
 }
 
@@ -170,7 +178,7 @@ async function fetchNewMessages(
   const sinceEncoded = encodeURIComponent(since);
   let url: string | null =
     `https://graph.microsoft.com/v1.0/me/mailFolders/${folder}/messages` +
-    `?$select=id,subject,from,bodyPreview,body,receivedDateTime,isRead,importance,inferenceClassification,flag` +
+    `?$select=id,subject,from,toRecipients,ccRecipients,bodyPreview,body,receivedDateTime,isRead,importance,inferenceClassification,flag` +
     `&$filter=receivedDateTime gt ${sinceEncoded}` +
     `&$orderby=receivedDateTime asc` +
     `&$top=50`;

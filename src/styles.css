@@ -304,6 +304,33 @@ html, body {
   color: var(--color-text-muted);
 }
 
+.email-viewer-recipients {
+  margin-top: 0.25rem;
+}
+
+.recip-row {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  margin-top: 0.1rem;
+  word-break: break-word;
+}
+
+.recip-label {
+  font-weight: 600;
+}
+
+.recip-toggle {
+  border: none;
+  background: none;
+  padding: 0 0.15rem;
+  color: var(--color-accent);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.recip-toggle:hover { text-decoration: underline; }
+
 .email-viewer-body {
   flex: 1;
   overflow: hidden;

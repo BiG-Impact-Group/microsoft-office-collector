@@ -12,6 +12,8 @@ export interface Email {
   received_at: string;
   is_read: boolean;
   category: EmailCategory | null;
+  to_recipients: string[];
+  cc_recipients: string[];
 }
 
 export interface ConnectedAccount {
@@ -61,7 +63,7 @@ export async function sendEmail(input: SendEmailInput): Promise<void> {
 export async function fetchEmails(accountId: string): Promise<Email[]> {
   const { data, error } = await supabase
     .from("emails")
-    .select("id, account_id, subject, from_address, preview, body_html, received_at, is_read, category")
+    .select("id, account_id, subject, from_address, preview, body_html, received_at, is_read, category, to_recipients, cc_recipients")
     .eq("account_id", accountId)
     .order("received_at", { ascending: false })
     .limit(100);
