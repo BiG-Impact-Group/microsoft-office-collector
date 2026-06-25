@@ -82,7 +82,8 @@ async function loadEmails(): Promise<void> {
 }
 
 function filteredEmails(): Email[] {
-  if (activeCategory === "all") return emailCache;
+  // "All" means all received mail — Sent has its own tab.
+  if (activeCategory === "all") return emailCache.filter((e) => e.category !== "sent");
   return emailCache.filter((e) => e.category === activeCategory);
 }
 
@@ -92,7 +93,9 @@ function renderList(): void {
 
 function renderTabs(): void {
   const countFor = (key: TabKey) =>
-    key === "all" ? emailCache.length : emailCache.filter((e) => e.category === key).length;
+    key === "all"
+      ? emailCache.filter((e) => e.category !== "sent").length
+      : emailCache.filter((e) => e.category === key).length;
 
   tabsEl.innerHTML = TABS.map((t) => {
     const isActive = t.key === activeCategory;
