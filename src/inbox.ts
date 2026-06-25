@@ -15,10 +15,10 @@ const tabsEl = document.getElementById("category-tabs")!;
 type TabKey = EmailCategory | "all";
 const TABS: { key: TabKey; label: string }[] = [
   { key: "all", label: "All" },
-  { key: "urgent", label: "Urgent" },
   { key: "primary", label: "Primary" },
   { key: "promotions", label: "Promotions" },
   { key: "junk", label: "Junk" },
+  { key: "sent", label: "Sent" },
 ];
 
 let selectedId: string | null = null;
@@ -98,7 +98,7 @@ function renderTabs(): void {
     const isActive = t.key === activeCategory;
     return `
       <button
-        class="cat-tab${isActive ? " active" : ""}"
+        class="cat-tab${isActive ? " active" : ""}${t.key === "sent" ? " cat-tab-right" : ""}"
         data-cat="${t.key}"
         role="tab"
         aria-selected="${isActive}"

@@ -1,6 +1,6 @@
 import { supabase } from "./lib/supabase.js";
 
-export type EmailCategory = "urgent" | "primary" | "promotions" | "junk";
+export type EmailCategory = "urgent" | "primary" | "promotions" | "junk" | "sent";
 
 export interface Email {
   id: string;

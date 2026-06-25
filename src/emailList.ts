@@ -55,6 +55,7 @@ function catLabel(category: string): string {
     case "primary": return "Primary";
     case "promotions": return "Promo";
     case "junk": return "Junk";
+    case "sent": return "Sent";
     default: return category;
   }
 }

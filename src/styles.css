@@ -386,6 +386,10 @@ html, body {
 .cat-primary    { background: #e7f0fb; color: #0f6cbd; }
 .cat-promotions { background: #fdf1d6; color: #8a6d00; }
 .cat-junk       { background: #ececec; color: #6b6b6b; }
+.cat-sent       { background: #e3f0e8; color: #1a7f43; }
+
+/* Push the Sent tab to the far right of the tab bar. */
+.cat-tab-right { margin-left: auto; }
 
 /* ── Utilities ────────────────────────────────────────────── */
 

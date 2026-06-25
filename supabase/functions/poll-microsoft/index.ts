@@ -15,7 +15,7 @@ interface ConnectedAccount {
   last_synced_at: string | null;
 }
 
-type Category = "urgent" | "primary" | "promotions" | "junk";
+type Category = "urgent" | "primary" | "promotions" | "junk" | "sent";
 
 interface GraphMessage {
   id: string;
@@ -79,14 +79,15 @@ async function syncAccount(
   // ── 1. Valid access token (decrypts; refreshes + persists if near expiry) ──
   const activeAccessToken = await getValidAccessToken(db, account);
 
-  // ── 3. Fetch new messages from the Inbox and Junk Email folders ──
+  // ── 3. Fetch new messages from Inbox, Junk, and Sent Items ──
   const since = account.last_synced_at ?? new Date(0).toISOString();
-  const [inboxMsgs, junkMsgs] = await Promise.all([
+  const [inboxMsgs, junkMsgs, sentMsgs] = await Promise.all([
     fetchNewMessages(activeAccessToken, since, "inbox"),
     fetchNewMessages(activeAccessToken, since, "junkemail"),
+    fetchNewMessages(activeAccessToken, since, "sentitems"),
   ]);
 
-  const all = [...inboxMsgs, ...junkMsgs];
+  const all = [...inboxMsgs, ...junkMsgs, ...sentMsgs];
   if (all.length === 0) {
     // Nothing new. Do NOT advance the watermark to now(): a message could
     // arrive with a receivedDateTime between this query and now(), and a
@@ -101,6 +102,7 @@ async function syncAccount(
   const rows = [
     ...inboxMsgs.map((m) => toRow(account.id, m, classifyCategory(m))),
     ...junkMsgs.map((m) => toRow(account.id, m, "junk")),
+    ...sentMsgs.map((m) => toRow(account.id, m, "sent")),
   ];
 
   const { error: upsertErr } = await db
@@ -124,9 +126,8 @@ async function syncAccount(
     .eq("id", account.id);
 }
 
-// Derive a category from Microsoft Graph signals (junk is handled by folder).
-function classifyCategory(msg: GraphMessage): Exclude<Category, "junk"> {
-  if (msg.importance === "high" || msg.flag?.flagStatus === "flagged") return "urgent";
+// Derive a category for inbox messages (junk/sent are handled by folder).
+function classifyCategory(msg: GraphMessage): "primary" | "promotions" {
   // Focused Inbox "other" is where newsletters/promotions/subscriptions land.
   if (msg.inferenceClassification === "other") return "promotions";
   return "primary";
@@ -161,7 +162,7 @@ const MAX_PAGES = 20;
 async function fetchNewMessages(
   accessToken: string,
   since: string,
-  folder: "inbox" | "junkemail"
+  folder: "inbox" | "junkemail" | "sentitems"
 ): Promise<GraphMessage[]> {
   // ISO 8601 format required by OData $filter.
   // Order ASCENDING and follow @odata.nextLink so we ingest the *oldest*
