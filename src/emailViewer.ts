@@ -1,4 +1,5 @@
 import type { Email } from "./emails.js";
+import { openCompose } from "./composeModal.js";
 
 // The previously-rendered body is loaded as a Blob URL; track it so we can
 // revoke it when switching emails (avoids leaking object URLs).
@@ -26,11 +27,14 @@ export function renderEmailViewer(container: HTMLElement, email: Email): void {
 
   container.innerHTML = `
     <div class="email-viewer-header">
-      <h2>${escapeHtml(email.subject)}</h2>
-      <div class="email-viewer-meta">
-        From: ${escapeHtml(email.from_address)} &nbsp;·&nbsp;
-        ${formatDate(email.received_at)}
+      <div class="email-viewer-head-text">
+        <h2>${escapeHtml(email.subject)}</h2>
+        <div class="email-viewer-meta">
+          From: ${escapeHtml(email.from_address)} &nbsp;·&nbsp;
+          ${formatDate(email.received_at)}
+        </div>
       </div>
+      <button class="btn btn-secondary btn-sm" id="reply-btn">Reply</button>
     </div>
     <div class="email-viewer-body">
       <iframe
@@ -49,6 +53,17 @@ export function renderEmailViewer(container: HTMLElement, email: Email): void {
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });
   currentBlobUrl = URL.createObjectURL(blob);
   iframe.src = currentBlobUrl;
+
+  container.querySelector("#reply-btn")!.addEventListener("click", () => {
+    openCompose({
+      to: email.from_address,
+      subject: replySubject(email.subject),
+    });
+  });
+}
+
+function replySubject(subject: string): string {
+  return /^re:/i.test(subject.trim()) ? subject : `Re: ${subject}`;
 }
 
 export function clearEmailViewer(container: HTMLElement): void {

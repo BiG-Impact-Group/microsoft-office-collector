@@ -279,6 +279,18 @@ html, body {
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.email-viewer-head-text {
+  min-width: 0;
+}
+
+#reply-btn {
+  flex-shrink: 0;
 }
 
 .email-viewer-header h2 {

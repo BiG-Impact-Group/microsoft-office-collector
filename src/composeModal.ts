@@ -1,7 +1,14 @@
 import { sendEmail } from "./emails.js";
 
+export interface ComposePrefill {
+  to?: string;
+  cc?: string;
+  subject?: string;
+  body?: string;
+}
+
 /** Opens the compose-email dialog and sends via the send-mail edge function. */
-export function openCompose(): void {
+export function openCompose(prefill: ComposePrefill = {}): void {
   if (document.getElementById("compose-overlay")) return;
 
   const overlay = document.createElement("div");
@@ -26,6 +33,14 @@ export function openCompose(): void {
     </div>
   `;
   document.body.appendChild(overlay);
+
+  // Apply any pre-filled values (e.g. from Reply).
+  (document.getElementById("compose-to") as HTMLInputElement).value = prefill.to ?? "";
+  (document.getElementById("compose-cc") as HTMLInputElement).value = prefill.cc ?? "";
+  (document.getElementById("compose-subject") as HTMLInputElement).value = prefill.subject ?? "";
+  (document.getElementById("compose-body") as HTMLTextAreaElement).value = prefill.body ?? "";
+  // On a reply (recipient already known) focus the body; otherwise focus To.
+  document.getElementById(prefill.to ? "compose-body" : "compose-to")!.focus();
 
   const close = () => {
     overlay.remove();
