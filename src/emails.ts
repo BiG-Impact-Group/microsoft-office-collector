@@ -60,6 +60,37 @@ export async function sendEmail(input: SendEmailInput): Promise<void> {
   }
 }
 
+export interface AskSource {
+  n: number;
+  kind: "email" | "document";
+  title: string;
+  source_id: string;
+}
+
+export interface AskResult {
+  answer: string | null;
+  sources: AskSource[];
+  note?: string;
+}
+
+export async function askQuestion(question: string): Promise<AskResult> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const jwt = session?.access_token;
+  if (!jwt) throw new Error("Not signed in");
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+  const res = await fetch(`${supabaseUrl}/functions/v1/ask`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
+    body: JSON.stringify({ question }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `Server error (${res.status})`);
+  }
+  return (await res.json()) as AskResult;
+}
+
 export async function searchEmails(query: string): Promise<Email[]> {
   const { data: { session } } = await supabase.auth.getSession();
   const jwt = session?.access_token;
