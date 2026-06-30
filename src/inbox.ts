@@ -1,5 +1,5 @@
 import { getSession } from "./auth.js";
-import { getMicrosoftAccount, fetchEmails } from "./emails.js";
+import { getMicrosoftAccount, fetchEmails, searchEmails } from "./emails.js";
 import type { Email, EmailCategory } from "./emails.js";
 import { renderEmailList } from "./emailList.js";
 import { renderEmailViewer, clearEmailViewer } from "./emailViewer.js";
@@ -26,6 +26,8 @@ let accountId: string | null = null;
 let emailCache: Email[] = [];
 let activeCategory: TabKey = "all";
 let signInEmail = "";
+// When set, the list shows semantic-search results instead of the category list.
+let searchResults: Email[] | null = null;
 
 async function init(): Promise<void> {
   // Guard: redirect to landing if not authenticated
@@ -41,6 +43,31 @@ async function init(): Promise<void> {
   });
   document.getElementById("compose-btn")!.addEventListener("click", () => {
     openCompose();
+  });
+
+  const searchInput = document.getElementById("search-input") as HTMLInputElement;
+  searchInput.addEventListener("keydown", async (e) => {
+    if (e.key !== "Enter") return;
+    const q = searchInput.value.trim();
+    if (!q) {
+      searchResults = null;
+      renderList();
+      return;
+    }
+    listEl.innerHTML = `<p class="empty-state">Searching…</p>`;
+    try {
+      searchResults = await searchEmails(q);
+      renderList();
+    } catch {
+      listEl.innerHTML = `<p class="empty-state">Search failed. Try again.</p>`;
+    }
+  });
+  // Clearing the box (incl. the native ✕) returns to the normal list.
+  searchInput.addEventListener("input", () => {
+    if (searchInput.value.trim() === "" && searchResults) {
+      searchResults = null;
+      renderList();
+    }
   });
 
   // Find the connected Microsoft account
@@ -86,7 +113,8 @@ function filteredEmails(): Email[] {
 }
 
 function renderList(): void {
-  renderEmailList(listEl, filteredEmails(), selectedId, onEmailSelect);
+  const list = searchResults ?? filteredEmails();
+  renderEmailList(listEl, list, selectedId, onEmailSelect);
 }
 
 function renderTabs(): void {
@@ -108,6 +136,9 @@ function renderTabs(): void {
 
   tabsEl.querySelectorAll<HTMLElement>(".cat-tab").forEach((btn) => {
     btn.addEventListener("click", () => {
+      // Switching tabs exits search mode.
+      searchResults = null;
+      (document.getElementById("search-input") as HTMLInputElement).value = "";
       activeCategory = btn.dataset.cat as TabKey;
       renderTabs();
       renderList();

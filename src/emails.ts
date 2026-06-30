@@ -80,6 +80,30 @@ export async function sendEmail(input: SendEmailInput): Promise<void> {
   }
 }
 
+export async function searchEmails(query: string): Promise<Email[]> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const jwt = session?.access_token;
+  if (!jwt) throw new Error("Not signed in");
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+  const res = await fetch(`${supabaseUrl}/functions/v1/search`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${jwt}`,
+    },
+    body: JSON.stringify({ query }),
+  });
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `Server error (${res.status})`);
+  }
+
+  const data = (await res.json()) as { results: Email[] };
+  return data.results ?? [];
+}
+
 export async function fetchEmails(accountId: string): Promise<Email[]> {
   const { data, error } = await supabase
     .from("emails")
