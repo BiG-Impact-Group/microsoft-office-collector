@@ -4,7 +4,7 @@ import { decryptToken, encryptToken } from "./crypto.ts";
 // Single source of truth for the OAuth scope. Read = Mail.Read; compose/send
 // add Mail.ReadWrite (drafts/manage) + Mail.Send.
 export const GRAPH_SCOPE =
-  "offline_access User.Read Mail.Read Mail.ReadWrite Mail.Send";
+  "offline_access User.Read Mail.Read Mail.ReadWrite Mail.Send Files.Read";
 
 const AZURE_CLIENT_ID = Deno.env.get("AZURE_CLIENT_ID")!;
 const AZURE_CLIENT_SECRET = Deno.env.get("AZURE_CLIENT_SECRET")!;
