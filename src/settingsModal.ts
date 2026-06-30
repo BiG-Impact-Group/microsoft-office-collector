@@ -1,8 +1,9 @@
 import { signOut, updateEmail, updatePassword, deleteAccount } from "./auth.js";
+import { getMicrosoftAccount, disconnectMicrosoftAccount } from "./emails.js";
+import { initiateOAuth } from "./connectEmail.js";
 
 interface SettingsOpts {
   signInEmail: string;
-  microsoftEmail: string | null;
 }
 
 /**
@@ -45,11 +46,7 @@ export function openSettings(opts: SettingsOpts): void {
 
       <div class="modal-section">
         <div class="modal-label">Connected email account</div>
-        <div class="modal-value">${
-          opts.microsoftEmail
-            ? `Microsoft &middot; ${escapeHtml(opts.microsoftEmail)}`
-            : "None connected"
-        }</div>
+        <div class="modal-value" id="ms-section">Loading…</div>
       </div>
 
       <div class="modal-section">
@@ -122,6 +119,55 @@ export function openSettings(opts: SettingsOpts): void {
   });
 
   document.getElementById("delete-account")!.addEventListener("click", openDeleteConfirm);
+
+  // Always reflect the live account state (fixes stale display on reopen).
+  void renderMsSection();
+}
+
+/**
+ * Renders the connected-account section from the current DB state, with the
+ * right action: Disconnect (active), Reconnect (disconnected), or Connect
+ * (none). Re-rendered in place after a disconnect.
+ */
+async function renderMsSection(): Promise<void> {
+  const el = document.getElementById("ms-section");
+  if (!el) return;
+
+  let account: { provider_account_email: string; is_active: boolean } | null = null;
+  try {
+    account = await getMicrosoftAccount();
+  } catch {
+    el.textContent = "Couldn't load account status.";
+    return;
+  }
+
+  if (account && account.is_active) {
+    el.innerHTML = `Microsoft &middot; ${escapeHtml(account.provider_account_email)}
+      <div class="modal-actions-row"><button class="link-btn" id="ms-action" type="button">Disconnect</button></div>
+      <p class="modal-msg" id="ms-msg"></p>`;
+    document.getElementById("ms-action")!.addEventListener("click", async () => {
+      const msg = document.getElementById("ms-msg")!;
+      const btn = document.getElementById("ms-action") as HTMLButtonElement;
+      btn.disabled = true;
+      setMsg(msg, "Disconnecting…", "");
+      try {
+        await disconnectMicrosoftAccount();
+        await renderMsSection(); // now shows the disconnected + Reconnect state
+      } catch (err) {
+        btn.disabled = false;
+        setMsg(msg, errText(err, "Failed to disconnect."), "error");
+      }
+    });
+  } else if (account) {
+    el.innerHTML = `Microsoft &middot; ${escapeHtml(account.provider_account_email)} <span class="ms-disconnected">(disconnected)</span>
+      <div class="modal-actions-row"><button class="link-btn" id="ms-action" type="button">Reconnect</button></div>
+      <p class="modal-msg">Existing mail is kept. Reconnecting re-consents with Microsoft.</p>`;
+    document.getElementById("ms-action")!.addEventListener("click", () => initiateOAuth());
+  } else {
+    el.innerHTML = `None connected
+      <div class="modal-actions-row"><button class="link-btn" id="ms-action" type="button">Connect Microsoft email</button></div>`;
+    document.getElementById("ms-action")!.addEventListener("click", () => initiateOAuth());
+  }
 }
 
 /** Confirmation popup for the irreversible account deletion. */

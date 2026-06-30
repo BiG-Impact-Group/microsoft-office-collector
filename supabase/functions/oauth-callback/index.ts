@@ -123,6 +123,7 @@ Deno.serve(async (req: Request) => {
         access_token_encrypted: encAccess,
         refresh_token_encrypted: encRefresh,
         token_expires_at: tokenExpiresAt,
+        is_active: true,
       },
       { onConflict: "user_id,provider" }
     );

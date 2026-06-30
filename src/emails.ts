@@ -19,17 +19,37 @@ export interface Email {
 export interface ConnectedAccount {
   id: string;
   provider_account_email: string;
+  is_active: boolean;
 }
 
 export async function getMicrosoftAccount(): Promise<ConnectedAccount | null> {
   const { data, error } = await supabase
     .from("connected_accounts")
-    .select("id, provider_account_email")
+    .select("id, provider_account_email, is_active")
     .eq("provider", "microsoft")
     .maybeSingle();
 
   if (error) throw error;
   return data as ConnectedAccount | null;
+}
+
+/**
+ * Disconnects the Microsoft account: stops the poll from gathering new mail
+ * and clears the stored tokens, while keeping the account row and all
+ * previously-synced emails. Reconnecting (OAuth) re-activates it.
+ */
+export async function disconnectMicrosoftAccount(): Promise<void> {
+  const { error } = await supabase
+    .from("connected_accounts")
+    .update({
+      is_active: false,
+      access_token_encrypted: null,
+      refresh_token_encrypted: null,
+      token_expires_at: null,
+    })
+    .eq("provider", "microsoft");
+
+  if (error) throw error;
 }
 
 export interface SendEmailInput {
