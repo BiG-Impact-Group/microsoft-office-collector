@@ -1,20 +1,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getValidAccessToken } from "../_shared/graphToken.ts";
+import { convertToMarkdown } from "../_shared/convert.ts";
 
 // Collects email attachments via Microsoft Graph, converts them to markdown,
 // and stores them in `documents` (the index cron then embeds them). Triggered
 // server-side with x-poll-secret. Idempotent (deduped on email_id + name).
-//
-// Conversion support:
-//   text / csv / html / json  -> inline (always)
-//   pdf                        -> Claude document API (needs ANTHROPIC_API_KEY)
-//   docx / xlsx / other binary -> recorded as status='skipped' (follow-up)
+// Conversion lives in _shared/convert.ts.
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const POLL_SECRET = Deno.env.get("POLL_SECRET")!;
-const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
-const ANTHROPIC_MODEL = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-opus-4-8";
 
 const MAX_MESSAGES_PER_RUN = 10;
 const MAX_ATTACHMENTS_PER_RUN = 15;
@@ -146,73 +141,6 @@ async function toDocument(accountId: string, emailId: string, att: GraphAttachme
   } catch (err) {
     return { ...base, status: "failed", error: err instanceof Error ? err.message : String(err) };
   }
-}
-
-async function convertToMarkdown(name: string, mime: string, b64: string): Promise<string | null> {
-  const lower = name.toLowerCase();
-  const isText =
-    mime.startsWith("text/") ||
-    mime === "application/json" ||
-    /\.(txt|md|markdown|csv|tsv|json|log|html?|xml)$/.test(lower);
-
-  if (isText) {
-    const text = new TextDecoder().decode(base64ToBytes(b64));
-    if (mime.includes("html") || /\.html?$/.test(lower)) return stripHtml(text);
-    return text.slice(0, 100_000);
-  }
-
-  if (mime === "application/pdf" || lower.endsWith(".pdf")) {
-    if (!ANTHROPIC_API_KEY) return null; // can't convert without the key
-    return await pdfToMarkdown(b64);
-  }
-
-  // docx / xlsx / pptx / images / other binary — not yet handled.
-  return null;
-}
-
-async function pdfToMarkdown(b64: string): Promise<string> {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: ANTHROPIC_MODEL,
-      max_tokens: 8000,
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "document", source: { type: "base64", media_type: "application/pdf", data: b64 } },
-            { type: "text", text: "Convert this document to clean Markdown. Output only the Markdown, no preamble." },
-          ],
-        },
-      ],
-    }),
-  });
-  if (!res.ok) throw new Error(`pdf conversion failed: ${res.status} ${await res.text()}`);
-  const data = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
-  return (data.content ?? []).filter((b) => b.type === "text").map((b) => b.text ?? "").join("").trim();
-}
-
-function base64ToBytes(b64: string): Uint8Array {
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes;
-}
-
-function stripHtml(html: string): string {
-  return html
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 100_000);
 }
 
 function json(body: unknown, status = 200): Response {

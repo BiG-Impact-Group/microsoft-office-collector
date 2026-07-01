@@ -20,7 +20,7 @@ export function initiateOAuth(): void {
     client_id: clientId,
     response_type: "code",
     redirect_uri: redirectUri,
-    scope: "offline_access User.Read Mail.Read Mail.ReadWrite Mail.Send",
+    scope: "offline_access User.Read Mail.Read Mail.ReadWrite Mail.Send Files.Read",
     state,
   });
 
