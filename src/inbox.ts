@@ -5,6 +5,7 @@ import { renderEmailList } from "./emailList.js";
 import { renderEmailViewer, clearEmailViewer } from "./emailViewer.js";
 import { openSettings } from "./settingsModal.js";
 import { openCompose } from "./composeModal.js";
+import { openAsk } from "./askModal.js";
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -43,6 +44,9 @@ async function init(): Promise<void> {
   });
   document.getElementById("compose-btn")!.addEventListener("click", () => {
     openCompose();
+  });
+  document.getElementById("ask-btn")!.addEventListener("click", () => {
+    openAsk();
   });
 
   const searchInput = document.getElementById("search-input") as HTMLInputElement;
