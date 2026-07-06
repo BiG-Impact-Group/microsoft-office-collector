@@ -41,10 +41,13 @@ semantic search (pgvector `email_chunks`, `index-emails` cron, `search` fn,
   degrades to retrieval-only without `ANTHROPIC_API_KEY`); "Ask AI" UI (`askModal.ts`);
   `documents`+`document_chunks` tables (0009); `process-attachments` fn (email attachments ->
   markdown); `index-documents` fn; crons (0010).
-- **PR #8 `feature/onedrive`** (branched off #7): `poll-onedrive` fn (lists `/me/drive/recent`
-  -> markdown -> `documents` source='onedrive', dedupe on `external_id`); `_shared/convert.ts`
+- **PR #8 `feature/onedrive`** (branched off #7): `poll-onedrive` fn (walks `/me/drive/root/delta`
+  drive-wide -> markdown -> `documents` source='onedrive', dedupe on `external_id`); `_shared/convert.ts`
   (shared file->markdown: text/csv/html/json inline, PDF via Claude, docx/xlsx skipped);
   `documents.external_id` (0011); `poll-onedrive` cron (0012); scope += `Files.Read`; CLAUDE.md updated.
+  NOTE: originally used `/me/drive/recent`, which returned 0 items even for non-empty drives
+  (it tracks recently-*accessed* files, not drive contents). Fixed in PR #9 -> delta enumeration
+  with a persisted cursor (`connected_accounts.onedrive_delta_link`, migration 0013).
 
 ## IMMEDIATE NEXT STEP (user-approved)
 1. **User is reconnecting** the Microsoft account to consent to `Files.Read` (Azure perms were
