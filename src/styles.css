@@ -725,3 +725,167 @@ html, body {
 
 .compose-footer .modal-msg { flex: 1; margin: 0; }
 .compose-send:disabled { opacity: 0.6; cursor: default; }
+
+/* ===== Workspace shell ===== */
+.app-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: var(--color-text-muted);
+}
+
+.app-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-nav {
+  width: 200px;
+  flex-shrink: 0;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 0.75rem;
+  gap: 0.25rem;
+}
+
+.app-brand {
+  font-weight: 700;
+  font-size: 1.1rem;
+  padding: 0.25rem 0.5rem 1rem;
+  color: var(--color-accent);
+}
+
+.app-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius);
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--color-text);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+}
+.app-nav-item:hover { background: var(--color-bg); }
+.app-nav-item.active { background: var(--color-selected); color: var(--color-accent); font-weight: 600; }
+.app-nav-icon { font-size: 1.05rem; }
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  height: 100vh;
+  overflow: hidden;
+}
+/* Mail's own two-pane layout fills the main area. */
+.app-main .inbox-layout { height: 100%; }
+
+/* ===== OneDrive section ===== */
+.onedrive {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.onedrive-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  flex-shrink: 0;
+}
+.od-actions { display: flex; gap: 0.5rem; }
+
+.od-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.95rem;
+  flex-wrap: wrap;
+}
+.od-crumb {
+  font: inherit;
+  font-size: 0.95rem;
+}
+.od-crumb.link {
+  border: none;
+  background: none;
+  color: var(--color-accent);
+  cursor: pointer;
+  padding: 0;
+}
+.od-crumb.current { font-weight: 600; }
+.od-crumb-sep { color: var(--color-text-muted); }
+
+.onedrive-status {
+  padding: 0.6rem 1.5rem;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  background: var(--color-selected);
+  border-bottom: 1px solid var(--color-border);
+}
+.onedrive-status.error { color: var(--color-danger); background: #fdf3f4; }
+
+.onedrive-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem 0;
+}
+
+.od-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.od-row.folder { cursor: pointer; }
+.od-row.folder:hover, .od-row.file:hover { background: var(--color-bg); }
+.od-icon { font-size: 1.15rem; }
+.od-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.od-meta { color: var(--color-text-muted); font-size: 0.85rem; white-space: nowrap; }
+.od-row-actions { display: flex; gap: 0.4rem; }
+
+.od-badge {
+  font-size: 0.72rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.od-badge.ok { background: #e3f0e8; color: #1a7f43; }
+.od-badge.warn { background: #fdf1d6; color: #8a6d00; }
+.od-badge.muted { background: #ececec; color: #6b6b6b; }
+
+/* ===== Assistant FAB ===== */
+.fab {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  z-index: 90;
+  transition: background 0.15s, transform 0.1s;
+}
+.fab:hover { background: var(--color-accent-hover); }
+.fab:active { transform: scale(0.94); }

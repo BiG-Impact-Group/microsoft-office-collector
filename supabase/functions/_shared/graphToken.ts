@@ -2,9 +2,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decryptToken, encryptToken } from "./crypto.ts";
 
 // Single source of truth for the OAuth scope. Read = Mail.Read; compose/send
-// add Mail.ReadWrite (drafts/manage) + Mail.Send.
+// add Mail.ReadWrite (drafts/manage) + Mail.Send. Files.ReadWrite covers both
+// reading OneDrive files and uploading new ones from the app.
 export const GRAPH_SCOPE =
-  "offline_access User.Read Mail.Read Mail.ReadWrite Mail.Send Files.Read";
+  "offline_access User.Read Mail.Read Mail.ReadWrite Mail.Send Files.ReadWrite";
 
 const AZURE_CLIENT_ID = Deno.env.get("AZURE_CLIENT_ID")!;
 const AZURE_CLIENT_SECRET = Deno.env.get("AZURE_CLIENT_SECRET")!;

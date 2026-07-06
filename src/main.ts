@@ -77,7 +77,7 @@ async function renderDashboard(email: string): Promise<void> {
   if (connected && connected.is_active) {
     body = `<p>Connected as <strong>${escapeHtml(connected.provider_account_email)}</strong>.</p>
        <div class="dashboard-actions">
-         <a class="btn btn-primary" href="/inbox.html">Go to inbox</a>
+         <a class="btn btn-primary" href="/inbox.html">Open workspace</a>
          <button class="btn btn-danger" id="signout-btn">Sign out</button>
        </div>`;
   } else if (connected) {
@@ -86,7 +86,7 @@ async function renderDashboard(email: string): Promise<void> {
        Syncing is paused; previously synced mail is still available.</p>
        <div class="dashboard-actions">
          <button class="btn btn-primary" id="connect-btn">Reconnect</button>
-         <a class="btn btn-secondary" href="/inbox.html">Go to inbox</a>
+         <a class="btn btn-secondary" href="/inbox.html">Open workspace</a>
          <button class="btn btn-danger" id="signout-btn">Sign out</button>
        </div>`;
   } else {
