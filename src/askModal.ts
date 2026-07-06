@@ -1,53 +1,60 @@
 import { askQuestion, type AskResult } from "./emails.js";
 
-/** Opens the "Ask your inbox" dialog: a question box that runs RAG over the
- *  user's email + documents and shows the answer with its sources. */
-export function openAsk(): void {
-  if (document.getElementById("ask-overlay")) return;
+// The RAG assistant, rendered as a docked panel in the bottom-right corner.
+// It is non-modal: no overlay, so the rest of the workspace stays interactive
+// while it's open. Toggled by the FAB (see fab.ts).
 
-  const overlay = document.createElement("div");
-  overlay.id = "ask-overlay";
-  overlay.className = "modal-overlay";
-  overlay.innerHTML = `
-    <div class="modal-card ask-card" role="dialog" aria-modal="true" aria-label="Ask your inbox">
-      <div class="modal-header">
-        <h2>Ask your inbox</h2>
-        <button class="modal-close" id="ask-close" aria-label="Close">&times;</button>
-      </div>
-      <form id="ask-form" class="ask-form">
-        <textarea id="ask-q" rows="3" placeholder="Ask a question about your email and attachments…"></textarea>
-        <div class="ask-actions">
-          <button class="btn btn-primary btn-sm" type="submit" id="ask-send">Ask</button>
-        </div>
-      </form>
-      <div class="ask-result" id="ask-result"></div>
+let panel: HTMLElement | null = null;
+let onCloseCb: (() => void) | null = null;
+
+function onKey(e: KeyboardEvent): void {
+  if (e.key === "Escape") closeAssistant();
+}
+
+export function isAssistantOpen(): boolean {
+  return panel !== null;
+}
+
+/** Opens the docked assistant panel. `onClose` fires whenever it closes
+ *  (via the panel's close button, Escape, or a caller calling closeAssistant). */
+export function openAssistant(onClose?: () => void): void {
+  if (panel) return;
+  onCloseCb = onClose ?? null;
+
+  panel = document.createElement("div");
+  panel.className = "assistant-panel";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", "Assistant");
+  panel.innerHTML = `
+    <div class="assistant-header">
+      <span class="assistant-title">Assistant</span>
+      <button class="modal-close" id="assistant-close" aria-label="Close">&times;</button>
     </div>
+    <div class="assistant-body">
+      <div class="ask-result" id="ask-result">
+        <p class="ask-status">Ask about your email, documents, and OneDrive files.</p>
+      </div>
+    </div>
+    <form id="ask-form" class="assistant-form">
+      <textarea id="ask-q" rows="2" placeholder="What would you like to know?"></textarea>
+      <button class="btn btn-primary btn-sm" type="submit" id="ask-send">Ask</button>
+    </form>
   `;
-  document.body.appendChild(overlay);
-
-  const close = () => {
-    overlay.remove();
-    document.removeEventListener("keydown", onKey);
-  };
-  const onKey = (e: KeyboardEvent) => {
-    if (e.key === "Escape") close();
-  };
+  document.body.appendChild(panel);
   document.addEventListener("keydown", onKey);
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) close();
-  });
-  document.getElementById("ask-close")!.addEventListener("click", close);
 
-  const form = document.getElementById("ask-form") as HTMLFormElement;
-  const resultEl = document.getElementById("ask-result")!;
-  const input = document.getElementById("ask-q") as HTMLTextAreaElement;
+  panel.querySelector("#assistant-close")!.addEventListener("click", () => closeAssistant());
+
+  const form = panel.querySelector("#ask-form") as HTMLFormElement;
+  const resultEl = panel.querySelector("#ask-result")!;
+  const input = panel.querySelector("#ask-q") as HTMLTextAreaElement;
   input.focus();
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const q = input.value.trim();
     if (!q) return;
-    const btn = document.getElementById("ask-send") as HTMLButtonElement;
+    const btn = panel!.querySelector("#ask-send") as HTMLButtonElement;
     btn.disabled = true;
     resultEl.innerHTML = `<p class="ask-status">Thinking…</p>`;
     try {
@@ -61,6 +68,21 @@ export function openAsk(): void {
       btn.disabled = false;
     }
   });
+}
+
+export function closeAssistant(): void {
+  if (!panel) return;
+  panel.remove();
+  panel = null;
+  document.removeEventListener("keydown", onKey);
+  const cb = onCloseCb;
+  onCloseCb = null;
+  if (cb) cb();
+}
+
+/** Back-compat alias: some call sites open the assistant via openAsk(). */
+export function openAsk(): void {
+  openAssistant();
 }
 
 function renderResult(res: AskResult): string {

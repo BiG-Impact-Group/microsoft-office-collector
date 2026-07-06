@@ -2,7 +2,6 @@ import { getMicrosoftAccount, fetchEmails, searchEmails } from "./emails.js";
 import type { Email, EmailCategory } from "./emails.js";
 import { renderEmailList } from "./emailList.js";
 import { renderEmailViewer, clearEmailViewer } from "./emailViewer.js";
-import { openSettings } from "./settingsModal.js";
 import { openCompose } from "./composeModal.js";
 
 const POLL_INTERVAL_MS = 30_000;
@@ -23,11 +22,6 @@ const MAIL_MARKUP = `
         <h1>Inbox</h1>
         <div class="header-actions">
           <button class="btn btn-primary btn-sm" id="compose-btn">Compose</button>
-          <button class="icon-btn" id="settings-btn" aria-label="Settings" title="Settings">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
-              <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.21.08-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
-            </svg>
-          </button>
         </div>
       </div>
       <div class="search-row">
@@ -44,15 +38,11 @@ const MAIL_MARKUP = `
   </div>
 `;
 
-export interface MailContext {
-  signInEmail: string;
-}
-
 /**
  * Mounts the two-pane mail reader into `container`. Returns a dispose function
  * that stops the background poll (called when navigating away from the section).
  */
-export function mountMail(container: HTMLElement, ctx: MailContext): () => void {
+export function mountMail(container: HTMLElement): () => void {
   container.innerHTML = MAIL_MARKUP;
 
   const listEl = container.querySelector<HTMLElement>("#email-list")!;
@@ -68,9 +58,6 @@ export function mountMail(container: HTMLElement, ctx: MailContext): () => void 
   let searchResults: Email[] | null = null;
   let pollTimer: number | undefined;
 
-  container.querySelector("#settings-btn")!.addEventListener("click", () => {
-    openSettings({ signInEmail: ctx.signInEmail });
-  });
   container.querySelector("#compose-btn")!.addEventListener("click", () => {
     openCompose();
   });
