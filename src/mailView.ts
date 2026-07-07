@@ -1,8 +1,9 @@
-import { getMicrosoftAccount, fetchEmails, searchEmails } from "./emails.js";
+import { getMicrosoftAccount, fetchEmails, fetchEmailById, searchEmails } from "./emails.js";
 import type { Email, EmailCategory } from "./emails.js";
 import { renderEmailList } from "./emailList.js";
 import { renderEmailViewer, clearEmailViewer } from "./emailViewer.js";
 import { openCompose } from "./composeModal.js";
+import { registerEmailOpener, unregisterEmailOpener } from "./navigation.js";
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -162,7 +163,20 @@ export function mountMail(container: HTMLElement): () => void {
     pollTimer = window.setInterval(loadEmails, POLL_INTERVAL_MS);
   })();
 
+  // Let other sections (e.g. the assistant's sources) open an email by id.
+  const openById = async (id: string): Promise<void> => {
+    const cached = emailCache.find((e) => e.id === id);
+    try {
+      const email = cached ?? (await fetchEmailById(id));
+      if (email) onEmailSelect(email);
+    } catch {
+      /* ignore — the email may not be accessible */
+    }
+  };
+  registerEmailOpener(openById);
+
   return () => {
     if (pollTimer !== undefined) window.clearInterval(pollTimer);
+    unregisterEmailOpener(openById);
   };
 }

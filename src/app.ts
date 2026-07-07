@@ -3,6 +3,8 @@ import { mountMail } from "./mailView.js";
 import { mountOneDrive } from "./onedriveView.js";
 import { mountFab } from "./fab.js";
 import { openSettings } from "./settingsModal.js";
+import { requestOpenEmail } from "./navigation.js";
+import { getDownloadUrl, getDocumentTarget } from "./onedrive.js";
 
 // Workspace shell: a sidebar switching between the Mail and OneDrive sections,
 // with the assistant FAB present across both. Sections are mounted in-place
@@ -87,6 +89,44 @@ async function init(): Promise<void> {
   });
 
   window.addEventListener("hashchange", () => show(sectionFromHash()));
+
+  function openEmail(id: string): void {
+    if (current !== "mail") {
+      if (location.hash !== "#mail") location.hash = "mail";
+      else show("mail");
+    }
+    requestOpenEmail(id);
+  }
+
+  // A source clicked in the assistant: open the email, or the document
+  // (download OneDrive files; open the parent email for attachments).
+  window.addEventListener("devpod:open-source", (async (e: Event) => {
+    const { kind, source_id } = (e as CustomEvent).detail as { kind: string; source_id: string };
+    if (!source_id) return;
+    if (kind === "email") {
+      openEmail(source_id);
+      return;
+    }
+    // Open the tab synchronously (preserve the click gesture so it isn't
+    // popup-blocked), then point it at the resolved download URL.
+    let win: Window | null = window.open("", "_blank");
+    if (win) win.opener = null;
+    try {
+      const target = await getDocumentTarget(source_id);
+      if (target?.source === "onedrive" && target.external_id) {
+        const { downloadUrl } = await getDownloadUrl(target.external_id);
+        if (win) win.location.href = downloadUrl;
+        else window.open(downloadUrl, "_blank", "noopener");
+      } else if (target?.email_id) {
+        win?.close();
+        openEmail(target.email_id);
+      } else {
+        win?.close();
+      }
+    } catch {
+      win?.close();
+    }
+  }) as EventListener);
 
   mountFab();
   show(sectionFromHash());

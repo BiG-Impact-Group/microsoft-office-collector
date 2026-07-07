@@ -498,6 +498,34 @@ html, body {
 .ask-sources li { font-size: 0.83rem; }
 .ask-sources .src-num { color: var(--color-text-muted); font-weight: 600; }
 
+/* Clickable source rows */
+.src-open {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.83rem;
+  color: var(--color-text);
+  cursor: pointer;
+  padding: 0.25rem 0.35rem;
+  border-radius: var(--radius);
+}
+.src-open:hover { background: var(--color-bg); }
+.src-open .src-title { text-decoration: underline; text-decoration-color: var(--color-border); }
+.src-open:hover .src-title { text-decoration-color: var(--color-accent); }
+
+/* Clickable email addresses */
+.addr-link {
+  color: var(--color-accent);
+  cursor: pointer;
+  text-decoration: none;
+}
+.addr-link:hover { text-decoration: underline; }
+
 /* ── Utilities ────────────────────────────────────────────── */
 
 .hidden { display: none !important; }

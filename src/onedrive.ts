@@ -46,6 +46,24 @@ export async function getDownloadUrl(itemId: string): Promise<{ downloadUrl: str
   return callFn("onedrive-download", { itemId });
 }
 
+export interface DocumentTarget {
+  source: string;
+  external_id: string | null;
+  email_id: string | null;
+}
+
+/** Looks up how to open a document (from an assistant source): its provider
+ *  source, OneDrive item id, and/or parent email id. RLS-scoped to the caller. */
+export async function getDocumentTarget(documentId: string): Promise<DocumentTarget | null> {
+  const { data, error } = await supabase
+    .from("documents")
+    .select("source, external_id, email_id")
+    .eq("id", documentId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as DocumentTarget | null) ?? null;
+}
+
 export async function processOneDriveItem(itemId: string): Promise<{ status: string }> {
   return callFn("onedrive-process", { itemId });
 }
