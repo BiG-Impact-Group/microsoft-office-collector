@@ -1,20 +1,23 @@
 import { getSession } from "./auth.js";
 import { mountMail } from "./mailView.js";
 import { mountOneDrive } from "./onedriveView.js";
-import { mountFab } from "./fab.js";
+import { mountAssistant } from "./assistantView.js";
+import { mountFab, setFabVisible } from "./fab.js";
 import { openSettings } from "./settingsModal.js";
 import { requestOpenEmail } from "./navigation.js";
 import { getDownloadUrl, getDocumentTarget } from "./onedrive.js";
 
-// Workspace shell: a sidebar switching between the Mail and OneDrive sections,
-// with the assistant FAB present across both. Sections are mounted in-place
-// (no reload); the active section's dispose() runs before switching.
+// Workspace shell: a sidebar switching between the Mail, OneDrive and Assistant
+// sections. The assistant FAB is present everywhere except the Assistant page
+// (where the large view replaces it). Sections mount in-place (no reload); the
+// active section's dispose() runs before switching.
 
-type Section = "mail" | "onedrive";
+type Section = "mail" | "onedrive" | "assistant";
 
 const NAV: { key: Section; label: string; icon: string }[] = [
   { key: "mail", label: "Mail", icon: "✉️" },
   { key: "onedrive", label: "OneDrive", icon: "☁️" },
+  { key: "assistant", label: "Assistant", icon: "💬" },
 ];
 
 const SHELL = `
@@ -59,7 +62,9 @@ async function init(): Promise<void> {
   let current: Section | null = null;
 
   function sectionFromHash(): Section {
-    return location.hash === "#onedrive" ? "onedrive" : "mail";
+    if (location.hash === "#onedrive") return "onedrive";
+    if (location.hash === "#assistant") return "assistant";
+    return "mail";
   }
 
   function show(section: Section): void {
@@ -74,7 +79,16 @@ async function init(): Promise<void> {
       b.classList.toggle("active", b.dataset.section === section);
     });
 
-    dispose = section === "mail" ? mountMail(content) : mountOneDrive(content);
+    // The FAB is hidden on the Assistant page (its large view replaces it);
+    // hiding also closes the docked panel without ending the live chat.
+    setFabVisible(section !== "assistant");
+
+    dispose =
+      section === "mail"
+        ? mountMail(content)
+        : section === "onedrive"
+          ? mountOneDrive(content)
+          : mountAssistant(content);
   }
 
   navList.querySelectorAll<HTMLElement>(".app-nav-item").forEach((btn) => {
