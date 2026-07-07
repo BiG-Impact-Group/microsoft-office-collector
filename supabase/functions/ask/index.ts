@@ -84,16 +84,36 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  if (rows.length === 0) {
+  // File inventory: retrieval returns semantically-similar content chunks, not a
+  // directory listing, so "what files do I have?" can't be answered from chunks
+  // alone. Give the model the user's actual file list (RLS-scoped) as grounding.
+  const { data: invData } = await supabase
+    .from("documents")
+    .select("name, source")
+    .in("status", ["converted", "skipped"])
+    .order("created_at", { ascending: false })
+    .limit(200);
+  const files = (invData ?? []) as { name: string; source: string }[];
+  const sourceLabel = (s: string) =>
+    s === "onedrive" ? "OneDrive" : s === "email_attachment" ? "Email attachment" : s;
+  const inventory = files.length
+    ? "The user's stored files (these ARE the files in their drive/workspace):\n" +
+      files.map((f) => `- ${f.name} (${sourceLabel(f.source)})`).join("\n")
+    : "The user has no stored files yet.";
+
+  if (rows.length === 0 && files.length === 0) {
     return json({ answer: "I couldn't find anything relevant in your synced mail or documents.", sources: [] });
   }
 
-  const contextText = rows
-    .map((r, i) => `[${i + 1}] (${r.kind}) ${r.title ?? "(untitled)"}\n${r.content}`)
-    .join("\n\n");
+  const contextText = [
+    `FILE INVENTORY:\n${inventory}`,
+    ...rows.map((r, i) => `[${i + 1}] (${r.kind}) ${r.title ?? "(untitled)"}\n${r.content}`),
+  ].join("\n\n");
 
   const system =
-    "You answer questions about the user's email and attached documents using ONLY the provided context. " +
+    "You answer questions about the user's email, documents, and OneDrive files using ONLY the provided context. " +
+    "The FILE INVENTORY section is the authoritative list of the files/documents the user has — use it to answer " +
+    "questions like what files or documents they have (in their drive/OneDrive/workspace). " +
     "Cite the sources you use with bracketed numbers like [1], [2]. " +
     "If the context does not contain the answer, say you don't know — do not invent details. " +
     "Respond directly with the answer; no preamble, no description of your reasoning.";
