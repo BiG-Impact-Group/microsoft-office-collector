@@ -135,6 +135,17 @@ export async function searchEmails(query: string): Promise<Email[]> {
   return data.results ?? [];
 }
 
+export async function fetchEmailById(id: string): Promise<Email | null> {
+  const { data, error } = await supabase
+    .from("emails")
+    .select("id, account_id, subject, from_address, preview, body_html, received_at, is_read, category, to_recipients, cc_recipients")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data as Email | null) ?? null;
+}
+
 export async function fetchEmails(accountId: string): Promise<Email[]> {
   const { data, error } = await supabase
     .from("emails")

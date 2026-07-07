@@ -1,4 +1,5 @@
 import { askQuestion, type AskResult } from "./emails.js";
+import { linkifyEmails, wireAddressLinks } from "./linkify.js";
 
 // The RAG assistant, rendered as a docked panel in the bottom-right corner.
 // It is non-modal: no overlay, so the rest of the workspace stays interactive
@@ -60,6 +61,7 @@ export function openAssistant(onClose?: () => void): void {
     try {
       const res = await askQuestion(q);
       resultEl.innerHTML = renderResult(res);
+      wireResult(resultEl as HTMLElement);
     } catch (err) {
       resultEl.innerHTML = `<p class="ask-status error">${escapeHtml(
         err instanceof Error ? err.message : "Something went wrong.",
@@ -67,6 +69,21 @@ export function openAssistant(onClose?: () => void): void {
     } finally {
       btn.disabled = false;
     }
+  });
+}
+
+// Make answer addresses and source rows interactive after render.
+function wireResult(resultEl: HTMLElement): void {
+  wireAddressLinks(resultEl);
+  resultEl.addEventListener("click", (e) => {
+    const el = (e.target as HTMLElement).closest<HTMLElement>(".src-open");
+    if (!el) return;
+    e.preventDefault();
+    window.dispatchEvent(
+      new CustomEvent("devpod:open-source", {
+        detail: { kind: el.dataset.kind, source_id: el.dataset.id },
+      }),
+    );
   });
 }
 
@@ -91,15 +108,17 @@ function renderResult(res: AskResult): string {
     parts.push(`<p class="ask-status">${escapeHtml(res.note)}</p>`);
   }
   if (res.answer) {
-    parts.push(`<div class="ask-answer">${escapeHtml(res.answer)}</div>`);
+    parts.push(`<div class="ask-answer">${linkifyEmails(escapeHtml(res.answer))}</div>`);
   }
   if (res.sources.length > 0) {
     const items = res.sources
       .map(
         (s) =>
-          `<li><span class="src-num">[${s.n}]</span> <span class="cat-pill cat-${
+          `<li><button type="button" class="src-open" data-kind="${s.kind}" data-id="${escapeHtml(
+            s.source_id,
+          )}" title="Open"><span class="src-num">[${s.n}]</span> <span class="cat-pill cat-${
             s.kind === "document" ? "sent" : "primary"
-          }">${s.kind}</span> ${escapeHtml(s.title)}</li>`,
+          }">${s.kind}</span> <span class="src-title">${escapeHtml(s.title)}</span></button></li>`,
       )
       .join("");
     parts.push(`<div class="ask-sources"><div class="ask-sources-label">Sources</div><ul>${items}</ul></div>`);

@@ -1,5 +1,6 @@
 import type { Email } from "./emails.js";
 import { openCompose } from "./composeModal.js";
+import { linkifyEmails, wireAddressLinks } from "./linkify.js";
 
 // The previously-rendered body is loaded as a Blob URL; track it so we can
 // revoke it when switching emails (avoids leaking object URLs).
@@ -30,7 +31,7 @@ export function renderEmailViewer(container: HTMLElement, email: Email): void {
       <div class="email-viewer-head-text">
         <h2>${escapeHtml(email.subject)}</h2>
         <div class="email-viewer-meta">
-          From: ${escapeHtml(email.from_address)} &nbsp;·&nbsp;
+          From: ${linkifyEmails(escapeHtml(email.from_address))} &nbsp;·&nbsp;
           ${formatDate(email.received_at)}
         </div>
         <div class="email-viewer-recipients" id="viewer-recipients"></div>
@@ -71,6 +72,8 @@ export function renderEmailViewer(container: HTMLElement, email: Email): void {
     });
   }
   renderRecipients();
+  // Clickable From/To/Cc addresses (delegated, survives recipient re-renders).
+  wireAddressLinks(container);
 
   container.querySelector("#reply-btn")!.addEventListener("click", () => {
     openCompose({
@@ -93,13 +96,14 @@ function recipientRow(
   if (!addresses || addresses.length === 0) return "";
 
   const prefix = `<span class="recip-label">${label}:</span> `;
+  const link = (a: string) => linkifyEmails(escapeHtml(a));
   if (addresses.length === 1) {
-    return `<div class="recip-row">${prefix}${escapeHtml(addresses[0])}</div>`;
+    return `<div class="recip-row">${prefix}${link(addresses[0])}</div>`;
   }
   if (!isExpanded) {
-    return `<div class="recip-row">${prefix}${escapeHtml(addresses[0])} <button class="recip-toggle" data-recip-toggle="${key}">…(+${addresses.length - 1})</button></div>`;
+    return `<div class="recip-row">${prefix}${link(addresses[0])} <button class="recip-toggle" data-recip-toggle="${key}">…(+${addresses.length - 1})</button></div>`;
   }
-  return `<div class="recip-row">${prefix}${addresses.map(escapeHtml).join(", ")} <button class="recip-toggle" data-recip-toggle="${key}">Hide</button></div>`;
+  return `<div class="recip-row">${prefix}${addresses.map(link).join(", ")} <button class="recip-toggle" data-recip-toggle="${key}">Hide</button></div>`;
 }
 
 export function clearEmailViewer(container: HTMLElement): void {
