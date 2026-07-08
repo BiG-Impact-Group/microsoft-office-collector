@@ -4,8 +4,8 @@ import { mountOneDrive } from "./onedriveView.js";
 import { mountAssistant } from "./assistantView.js";
 import { mountFab, setFabVisible } from "./fab.js";
 import { openSettings } from "./settingsModal.js";
-import { requestOpenEmail } from "./navigation.js";
-import { getDownloadUrl, getDocumentTarget } from "./onedrive.js";
+import { requestOpenEmail, requestRevealOneDrive } from "./navigation.js";
+import { locateOneDriveItem, getDocumentTarget } from "./onedrive.js";
 
 // Workspace shell: a sidebar switching between the Mail, OneDrive and Assistant
 // sections. The assistant FAB is present everywhere except the Assistant page
@@ -104,16 +104,18 @@ async function init(): Promise<void> {
 
   window.addEventListener("hashchange", () => show(sectionFromHash()));
 
+  function goToSection(section: Section): void {
+    if (current === section) return;
+    if (location.hash !== `#${section}`) location.hash = section;
+    else show(section);
+  }
   function openEmail(id: string): void {
-    if (current !== "mail") {
-      if (location.hash !== "#mail") location.hash = "mail";
-      else show("mail");
-    }
+    goToSection("mail");
     requestOpenEmail(id);
   }
 
-  // A source clicked in the assistant: open the email, or the document
-  // (download OneDrive files; open the parent email for attachments).
+  // A source clicked in the assistant: open the email, or reveal the document
+  // in the OneDrive browser (open the parent email for attachments).
   window.addEventListener("devpod:open-source", (async (e: Event) => {
     const { kind, source_id } = (e as CustomEvent).detail as { kind: string; source_id: string };
     if (!source_id) return;
@@ -121,24 +123,22 @@ async function init(): Promise<void> {
       openEmail(source_id);
       return;
     }
-    // Open the tab synchronously (preserve the click gesture so it isn't
-    // popup-blocked), then point it at the resolved download URL.
-    let win: Window | null = window.open("", "_blank");
-    if (win) win.opener = null;
-    try {
-      const target = await getDocumentTarget(source_id);
-      if (target?.source === "onedrive" && target.external_id) {
-        const { downloadUrl } = await getDownloadUrl(target.external_id);
-        if (win) win.location.href = downloadUrl;
-        else window.open(downloadUrl, "_blank", "noopener");
-      } else if (target?.email_id) {
-        win?.close();
-        openEmail(target.email_id);
-      } else {
-        win?.close();
+    const target = await getDocumentTarget(source_id);
+    if (target?.source === "onedrive" && target.external_id) {
+      goToSection("onedrive");
+      try {
+        const loc = await locateOneDriveItem(target.external_id);
+        requestRevealOneDrive({
+          folderId: loc.isRoot ? undefined : loc.parentId ?? undefined,
+          folderName: loc.parentName,
+          highlightId: target.external_id,
+        });
+      } catch {
+        // Not in the live drive (e.g. a synced/DB-only doc) → just show the root.
+        requestRevealOneDrive({});
       }
-    } catch {
-      win?.close();
+    } else if (target?.email_id) {
+      openEmail(target.email_id);
     }
   }) as EventListener);
 

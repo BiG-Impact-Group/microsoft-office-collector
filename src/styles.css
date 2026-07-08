@@ -901,6 +901,13 @@ html, body {
 .od-badge.warn { background: #fdf1d6; color: #8a6d00; }
 .od-badge.muted { background: #ececec; color: #6b6b6b; }
 
+/* Row briefly flashed when revealed from an assistant document source. */
+.od-row.highlight { animation: od-flash 2.2s ease-out; }
+@keyframes od-flash {
+  0%, 25% { background: var(--color-selected); }
+  100% { background: transparent; }
+}
+
 /* ===== Assistant FAB ===== */
 .fab {
   position: fixed;
