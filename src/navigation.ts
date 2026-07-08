@@ -25,3 +25,32 @@ export function requestOpenEmail(emailId: string): void {
   if (opener) opener(emailId);
   else pending = emailId;
 }
+
+// ── OneDrive "reveal a file's folder" bus (assistant document sources) ──
+export interface RevealTarget {
+  folderId?: string;
+  folderName?: string;
+  highlightId?: string;
+}
+type OneDriveOpener = (target: RevealTarget) => void;
+
+let odOpener: OneDriveOpener | null = null;
+let odPending: RevealTarget | null = null;
+
+export function registerOneDriveOpener(fn: OneDriveOpener): void {
+  odOpener = fn;
+  if (odPending) {
+    const t = odPending;
+    odPending = null;
+    fn(t);
+  }
+}
+export function unregisterOneDriveOpener(fn: OneDriveOpener): void {
+  if (odOpener === fn) odOpener = null;
+}
+/** Reveal a folder (and optionally highlight an item) in the OneDrive view;
+ *  queues if that view isn't mounted yet. */
+export function requestRevealOneDrive(target: RevealTarget): void {
+  if (odOpener) odOpener(target);
+  else odPending = target;
+}

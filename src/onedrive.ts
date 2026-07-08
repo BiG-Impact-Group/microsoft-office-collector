@@ -46,6 +46,19 @@ export async function getDownloadUrl(itemId: string): Promise<{ downloadUrl: str
   return callFn("onedrive-download", { itemId });
 }
 
+export interface OneDriveLocation {
+  name: string;
+  downloadUrl: string | null;
+  parentId: string | null;
+  parentName: string;
+  isRoot: boolean;
+}
+
+/** Item info + its parent folder, for revealing a file in the OneDrive browser. */
+export async function locateOneDriveItem(itemId: string): Promise<OneDriveLocation> {
+  return callFn("onedrive-download", { itemId });
+}
+
 export interface DocumentTarget {
   source: string;
   external_id: string | null;

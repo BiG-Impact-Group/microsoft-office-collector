@@ -1,7 +1,8 @@
 import { openAssistant, closeAssistant, isAssistantOpen } from "./askModal.js";
 
 // A single floating action button (bottom-right) that toggles the docked RAG
-// assistant. Present across all workspace sections. Idempotent.
+// assistant. Present across sections except the Assistant page (where the large
+// view replaces it). Idempotent.
 
 const CHAT_ICON = `
   <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
@@ -14,32 +15,43 @@ const CLOSE_ICON = `
     <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
   </svg>`;
 
+let fab: HTMLButtonElement | null = null;
+
+function setOpenIcon(open: boolean): void {
+  if (!fab) return;
+  fab.innerHTML = open ? CLOSE_ICON : CHAT_ICON;
+  fab.classList.toggle("open", open);
+  fab.setAttribute("aria-label", open ? "Close the assistant" : "Ask the assistant");
+  fab.title = open ? "Close the assistant" : "Ask the assistant";
+}
+
 export function mountFab(): void {
   if (document.getElementById("assistant-fab")) return;
 
-  const btn = document.createElement("button");
-  btn.id = "assistant-fab";
-  btn.className = "fab";
-  btn.type = "button";
-  btn.setAttribute("aria-label", "Ask the assistant");
-  btn.title = "Ask the assistant";
-  btn.innerHTML = CHAT_ICON;
+  fab = document.createElement("button");
+  fab.id = "assistant-fab";
+  fab.className = "fab";
+  fab.type = "button";
+  fab.innerHTML = CHAT_ICON;
+  fab.setAttribute("aria-label", "Ask the assistant");
+  fab.title = "Ask the assistant";
 
-  const setOpenIcon = (open: boolean) => {
-    btn.innerHTML = open ? CLOSE_ICON : CHAT_ICON;
-    btn.classList.toggle("open", open);
-    btn.setAttribute("aria-label", open ? "Close the assistant" : "Ask the assistant");
-    btn.title = open ? "Close the assistant" : "Ask the assistant";
-  };
-
-  btn.addEventListener("click", () => {
+  fab.addEventListener("click", () => {
     if (isAssistantOpen()) {
-      closeAssistant(); // triggers onClose → resets the icon
+      closeAssistant(true); // clicking the FAB (now an ✕) ends the chat
     } else {
       openAssistant(() => setOpenIcon(false));
       setOpenIcon(true);
     }
   });
 
-  document.body.appendChild(btn);
+  document.body.appendChild(fab);
+}
+
+/** Hide/show the FAB (hidden on the Assistant page). Hiding also closes the
+ *  docked panel WITHOUT ending the chat, so the live thread carries to the page. */
+export function setFabVisible(visible: boolean): void {
+  if (!fab) return;
+  if (!visible && isAssistantOpen()) closeAssistant(false);
+  fab.classList.toggle("hidden", !visible);
 }

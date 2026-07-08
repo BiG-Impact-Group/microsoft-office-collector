@@ -5,6 +5,7 @@ import {
   uploadToOneDrive,
   type OneDriveItem,
 } from "./onedrive.js";
+import { registerOneDriveOpener, unregisterOneDriveOpener, type RevealTarget } from "./navigation.js";
 
 // Mounts the OneDrive section: browse the drive, download files, upload new
 // ones (to a "DevPod Uploads" folder), and process files into the vector DB.
@@ -42,6 +43,7 @@ export function mountOneDrive(container: HTMLElement): () => void {
   let trail: Crumb[] = [{ name: "OneDrive" }];
   let items: OneDriveItem[] = [];
   let disposed = false;
+  let highlightId: string | null = null;
 
   function currentFolderId(): string | undefined {
     return trail[trail.length - 1].id;
@@ -102,6 +104,17 @@ export function mountOneDrive(container: HTMLElement): () => void {
         void process(btn.dataset.id!);
       });
     });
+
+    // Reveal-from-assistant: flash the target row once, then clear.
+    if (highlightId) {
+      const target = highlightId;
+      highlightId = null;
+      const row = [...listEl.querySelectorAll<HTMLElement>(".od-row")].find((r) => r.dataset.id === target);
+      if (row) {
+        row.classList.add("highlight");
+        row.scrollIntoView({ block: "center" });
+      }
+    }
   }
 
   function rowHtml(it: OneDriveItem): string {
@@ -132,15 +145,18 @@ export function mountOneDrive(container: HTMLElement): () => void {
       </div>`;
   }
 
+  let loadSeq = 0;
   async function load(): Promise<void> {
+    const seq = ++loadSeq;
     renderCrumbs();
     listEl.innerHTML = `<p class="empty-state">Loading…</p>`;
     try {
-      items = await listOneDrive(currentFolderId());
-      if (disposed) return;
+      const result = await listOneDrive(currentFolderId());
+      if (disposed || seq !== loadSeq) return; // a newer load superseded this one
+      items = result;
       renderList();
     } catch (err) {
-      listEl.innerHTML = `<p class="empty-state">${escapeHtml(errMsg(err))}</p>`;
+      if (seq === loadSeq) listEl.innerHTML = `<p class="empty-state">${escapeHtml(errMsg(err))}</p>`;
     }
   }
 
@@ -230,10 +246,19 @@ export function mountOneDrive(container: HTMLElement): () => void {
   });
   processAllBtn.addEventListener("click", () => void processAll());
 
+  // Reveal a file's folder when the assistant's document source is clicked.
+  const reveal = (t: RevealTarget) => {
+    trail = t.folderId ? [{ name: "OneDrive" }, { id: t.folderId, name: t.folderName ?? "Folder" }] : [{ name: "OneDrive" }];
+    highlightId = t.highlightId ?? null;
+    void load();
+  };
   void load();
+  // Register after the default load so a queued reveal supersedes it (loadSeq).
+  registerOneDriveOpener(reveal);
 
   return () => {
     disposed = true;
+    unregisterOneDriveOpener(reveal);
   };
 }
 
