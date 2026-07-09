@@ -4,3 +4,6 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  # These VITE_* vars are intentionally public: baked into the client bundle by
+  # design (Supabase anon key is safe under RLS; the rest are public OAuth params).
+  SECRETS_SCAN_OMIT_KEYS = "VITE_SUPABASE_ANON_KEY,VITE_SUPABASE_URL,VITE_AZURE_CLIENT_ID,VITE_AZURE_REDIRECT_URI,VITE_AZURE_TENANT"
