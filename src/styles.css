@@ -778,6 +778,7 @@ html, body {
   flex-direction: column;
   padding: 1rem 0.75rem;
   gap: 0.25rem;
+  transition: width 0.15s ease;
 }
 
 .app-brand {
@@ -790,6 +791,11 @@ html, body {
   font-weight: 700;
   font-size: 1.1rem;
   color: var(--color-accent);
+}
+.app-brand-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .app-nav-item {
@@ -811,6 +817,16 @@ html, body {
 .app-nav-item:hover { background: var(--color-bg); }
 .app-nav-item.active { background: var(--color-selected); color: var(--color-accent); font-weight: 600; }
 .app-nav-icon { font-size: 1.05rem; }
+
+/* Collapsed: icon-only rail. Toggle chevron rotates instead of swapping icons. */
+.app-nav.collapsed { width: 60px; padding: 1rem 0.5rem; }
+.app-nav.collapsed .app-brand { justify-content: center; padding: 0.25rem 0 1rem; }
+.app-nav.collapsed .app-brand-name { display: none; }
+.app-nav.collapsed .app-brand-actions { flex-direction: column; }
+.app-nav.collapsed .app-nav-item { justify-content: center; padding: 0.6rem; gap: 0; }
+.app-nav.collapsed .app-nav-label { display: none; }
+#app-nav-toggle-icon { transition: transform 0.15s ease; }
+.app-nav.collapsed #app-nav-toggle-icon { transform: rotate(180deg); }
 
 .app-main {
   flex: 1;

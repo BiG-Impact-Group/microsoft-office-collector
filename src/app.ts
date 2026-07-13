@@ -20,16 +20,25 @@ const NAV: { key: Section; label: string; icon: string }[] = [
   { key: "assistant", label: "Assistant", icon: "💬" },
 ];
 
+const NAV_COLLAPSE_KEY = "devpod:nav-collapsed";
+
 const SHELL = `
   <div class="app-shell">
-    <aside class="app-nav">
+    <aside class="app-nav" id="app-nav">
       <div class="app-brand">
         <span class="app-brand-name">DevPod</span>
-        <button class="icon-btn" id="app-settings-btn" aria-label="Settings" title="Settings">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
-            <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.21.08-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
-          </svg>
-        </button>
+        <div class="app-brand-actions">
+          <button class="icon-btn" id="app-nav-toggle" aria-label="Collapse sidebar" title="Collapse sidebar">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" id="app-nav-toggle-icon">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </button>
+          <button class="icon-btn" id="app-settings-btn" aria-label="Settings" title="Settings">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+              <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.21.08-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+            </svg>
+          </button>
+        </div>
       </div>
       <nav id="app-nav-list" aria-label="Sections"></nav>
     </aside>
@@ -53,9 +62,20 @@ async function init(): Promise<void> {
     openSettings({ signInEmail });
   });
 
+  const navEl = document.getElementById("app-nav")!;
+  const navToggle = document.getElementById("app-nav-toggle")!;
+  function setNavCollapsed(collapsed: boolean): void {
+    navEl.classList.toggle("collapsed", collapsed);
+    navToggle.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
+    navToggle.setAttribute("title", collapsed ? "Expand sidebar" : "Collapse sidebar");
+    localStorage.setItem(NAV_COLLAPSE_KEY, collapsed ? "1" : "0");
+  }
+  setNavCollapsed(localStorage.getItem(NAV_COLLAPSE_KEY) === "1");
+  navToggle.addEventListener("click", () => setNavCollapsed(!navEl.classList.contains("collapsed")));
+
   navList.innerHTML = NAV.map(
     (n) =>
-      `<button class="app-nav-item" data-section="${n.key}"><span class="app-nav-icon">${n.icon}</span>${n.label}</button>`,
+      `<button class="app-nav-item" data-section="${n.key}" title="${n.label}"><span class="app-nav-icon">${n.icon}</span><span class="app-nav-label">${n.label}</span></button>`,
   ).join("");
 
   let dispose: (() => void) | null = null;
